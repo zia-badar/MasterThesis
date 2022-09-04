@@ -1,3 +1,5 @@
+import random
+
 import torch
 import torchvision
 from torch.utils.data import Dataset, DataLoader
@@ -25,6 +27,7 @@ class FilteredDataset(Dataset):
             if size != None and len(self.filtered_indexes) > size:
                 break
 
+        random.shuffle(self.filtered_indexes)
         self.filtered_indexes = self.filtered_indexes[:size] if size != None else self.filtered_indexes
 
     def __getitem__(self, item):
