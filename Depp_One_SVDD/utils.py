@@ -4,7 +4,7 @@ import torch
 from torch.utils.data import DataLoader
 from torchvision.datasets import MNIST
 
-from SVDD.dataset import FilteredDataset
+from Depp_One_SVDD.dataset import FilteredDataset
 
 
 def min_max():

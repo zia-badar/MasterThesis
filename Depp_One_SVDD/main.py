@@ -7,9 +7,9 @@ from torch.utils.data import DataLoader
 from torchvision.datasets import MNIST, CIFAR10
 from tqdm import tqdm
 
-from SVDD.dataset import FilteredDataset
-from SVDD.loss import Loss
-from SVDD.model import Encoder, Decoder
+from Depp_One_SVDD.dataset import FilteredDataset
+from Depp_One_SVDD.loss import Loss
+from Depp_One_SVDD.model import Encoder, Decoder
 
 def train_encoder(dataloader, model_type):
 
@@ -54,6 +54,7 @@ def train(dataloader, model, loss, c):
                 total_loss += l.item()
             tqdm_bar.set_description(desc=f'One Class Deep SVDD training, loss: {total_loss/len(dataloader): .4f}')
 
+# https://citeseerx.ist.psu.edu/viewdoc/download?doi=10.1.1.10.9777&rep=rep1&type=pdf
 def test(dataloader, model, c, testing_class):
     scores = []
     labels = []
@@ -85,7 +86,7 @@ if __name__ == '__main__':
     for _class in range(10):
         roc_auc_runs = []
         for _ in range(10):
-            train_dataset = FilteredDataset(MNIST(root='.', train=True, download=True), min_max_norm_class=_class, include_class_label=_class, size=6000)
+            train_dataset = FilteredDataset(MNIST(root='../', train=True, download=True), min_max_norm_class=_class, include_class_label=_class, size=6000)
             train_dataloader = DataLoader(train_dataset, batch_size=batch_size, shuffle=True, num_workers=20)
             model = train_encoder(train_dataloader, model_type='mnist')
             model.use_in_autoencoder = False
@@ -94,7 +95,7 @@ if __name__ == '__main__':
 
             train(train_dataloader, model, SVDDLoss, c)
 
-            test_dataset = FilteredDataset(MNIST(root='.', train=False, download=True), min_max_norm_class=_class, exclude_class_label=11, size=10000)
+            test_dataset = FilteredDataset(MNIST(root='../', train=False, download=True), min_max_norm_class=_class, exclude_class_label=11, size=10000)
             test_dataloader = DataLoader(test_dataset, batch_size=batch_size, shuffle=True, num_workers=20)
             roc_auc = test(test_dataloader, model, c, testing_class=_class)
             roc_auc_runs.append(roc_auc)
@@ -109,7 +110,7 @@ if __name__ == '__main__':
     for _class in range(10):
         roc_auc_runs = []
         for _ in range(10):
-            train_dataset = FilteredDataset(CIFAR10(root='.', train=True, download=True), min_max_norm_class=_class, include_class_label=_class, size=5000)
+            train_dataset = FilteredDataset(CIFAR10(root='../', train=True, download=True), min_max_norm_class=_class, include_class_label=_class, size=5000)
             train_dataloader = DataLoader(train_dataset, batch_size=batch_size, shuffle=True, num_workers=20)
             model = train_encoder(train_dataloader, model_type='cifar')
             model.use_in_autoencoder = False
@@ -118,7 +119,7 @@ if __name__ == '__main__':
 
             train(train_dataloader, model, SVDDLoss, c)
 
-            test_dataset = FilteredDataset(CIFAR10(root='.', train=False, download=True), min_max_norm_class=_class, exclude_class_label=11, size=10000)
+            test_dataset = FilteredDataset(CIFAR10(root='../', train=False, download=True), min_max_norm_class=_class, exclude_class_label=11, size=10000)
             test_dataloader = DataLoader(test_dataset, batch_size=batch_size, shuffle=True, num_workers=20)
             roc_auc = test(test_dataloader, model, c, testing_class=_class)
             roc_auc_runs.append(roc_auc)
