@@ -72,14 +72,18 @@ def test(dataloader, model, c, testing_class):
     result = roc_auc_score(labels, scores)
     return result
 
-def compute_c(dataloader, model):
+def compute_c(dataloader, model, eps=0.1):
     output = []
     with torch.no_grad():
         model.eval()
         for x, _ in dataloader:
             output.append(model(x.cuda()))
 
-    return (torch.cat(output).mean(dim=0)).detach()
+    c = (torch.cat(output).mean(dim=0)).detach()
+    c[(abs(c) < eps) & (c < 0)] = -eps
+    c[(abs(c) < eps) & (c > 0)] = eps
+
+    return c
 
 if __name__ == '__main__':
     batch_size = 200
