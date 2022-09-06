@@ -54,7 +54,7 @@ results_file = 'output_results.log'
 cifar_labels = CIFAR10(root='../', train=True, download=True).classes
 def process_class(_class):
     print(f'processing class: {_class}')
-    outlier_exposure_classes = list(range(10, 101))
+    outlier_exposure_classes = list(range(0, 101))
     inlier_dataset = FilteredDataset(CIFAR10(root='../', train=True, download=True), [_class], [], _class)
     outlier_exposure_dataset = FilteredDataset(CIFAR100(root='../', train=True, download=True),
                                                outlier_exposure_classes, outlier_exposure_classes, _class)
@@ -67,7 +67,7 @@ def process_class(_class):
     all_classes = list(range(0, 10))
     outlier_classes = copy(all_classes)
     outlier_classes.remove(_class)
-    test_dataset = FilteredDataset(CIFAR10(root='../', train=True, download=True), all_classes, outlier_classes, _class)
+    test_dataset = FilteredDataset(CIFAR10(root='../', train=False, download=True), all_classes, outlier_classes, _class)
     test_dataloader = DataLoader(test_dataset, batch_size=batch_size, shuffle=True, num_workers=20)
     roc_auc = test(test_dataloader, model)
 
