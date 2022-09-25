@@ -8,9 +8,9 @@ from torch.utils.data import DataLoader
 from torchvision.datasets import CIFAR10, CIFAR100
 from tqdm import tqdm
 
-from FCDD.dataset import FilteredDataset, MergedDataset
-from FCDD.loss import Loss
-from FCDD.model import Model
+from fcdd.dataset import FilteredDataset, MergedDataset
+from fcdd.loss import Loss
+from fcdd.model import Model
 
 
 def train(dataloader, model, loss):

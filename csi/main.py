@@ -4,8 +4,8 @@ from torch.nn.functional import normalize
 from torch.optim import Adam
 from tqdm import tqdm
 
-from CSI.loss import Loss
-from CSI.utils import kmean_coreset
+from csi.loss import Loss
+from csi.utils import kmean_coreset
 
 
 to do

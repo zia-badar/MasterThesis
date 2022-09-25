@@ -5,5 +5,5 @@ cifar-10-python.tar.gz
 cifar-100-python.tar.gz
 cifar-10-batches-py
 cifar-100-python
-Depp_One_SVDD/results
-FCDD/output_results.log
+depp svdd/results
+fcdd/output_results.log
