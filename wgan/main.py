@@ -13,8 +13,8 @@ from wgan.models import Discriminator, Generator
 
 
 def train(config):
-    dataset = MNIST(root='../', train=True, transform=transforms.Compose([ToTensor(), Resize(size=(32, 32)), transforms.Normalize((0.5, ), (0.5, ))]), download=True)
-    dataloader = DataLoader(dataset, batch_size=config['batch_size'], shuffle=True, num_workers=20, drop_last=True)
+    dataset = MNIST(root='../', train=True, transform=transforms.Compose([ToTensor(), Resize(size=(32, 32))]), download=True)
+    dataloader = DataLoader(dataset, batch_size=config['batch_size'], shuffle=True, drop_last=True)
 
     f = Discriminator().cuda()
     g = Generator().cuda()
@@ -43,7 +43,8 @@ def train(config):
                 loss.backward()
                 optim_g.step()
 
-        evaluate(g)
+        if epoch % 100 == 0:
+            evaluate(g)
 
 def evaluate(model):
     z_dist = MultivariateNormal(torch.zeros(100), torch.eye(100))
@@ -62,6 +63,6 @@ def evaluate(model):
 
 if __name__ == '__main__':
 
-    config = {'batch_size': 64, 'n_critic': 5, 'clip': 1e-2, 'learning_rate': 5e-5, 'epochs': (int)(1e6)}
+    config = {'batch_size': 64, 'n_critic': 5, 'clip': 1e-2, 'learning_rate': 5e-5, 'epochs': (int)(1e7)}
 
     train(config)
