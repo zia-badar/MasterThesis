@@ -7,3 +7,4 @@ cifar-10-batches-py
 cifar-100-python
 depp svdd/results
 fcdd/output_results.log
+wgan/model_ *

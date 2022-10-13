@@ -1,7 +1,8 @@
+import sys
+
 import torch
 from torch.utils.data import Dataset
 from torchvision.transforms import Resize
-
 
 class OneClassDataset(Dataset):
     def __init__(self, dataset: Dataset, one_class_labels=[], zero_class_labels=[], transform=None):
@@ -26,7 +27,6 @@ class OneClassDataset(Dataset):
     def __len__(self):
         return len(self.filtered_indexes)
 
-
 class RandomBoxDataset(Dataset):
     def __init__(self, size=(32, 32)):
         self.resize = Resize(size=size)
@@ -45,8 +45,6 @@ class RandomBoxDataset(Dataset):
         mask = torch.logical_and(torch.logical_and(rand_ind[:, 0] >= 0, rand_ind[:, 0] < 32), torch.logical_and(rand_ind[:, 1] >= 0, rand_ind[:, 1] < 32))
         rand_ind = rand_ind[mask, :].type(torch.long)
         x[rand_ind[:, 0], rand_ind[:, 1]] = 1
-
-        x = x*2 - 1         # scalling
 
         return x.unsqueeze(0), 0
 

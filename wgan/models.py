@@ -9,15 +9,22 @@ class Discriminator(nn.Module):
 
         # https://pytorch.org/tutorials/beginner/dcgan_faces_tutorial.html, https://arxiv.org/pdf/1511.06434.pdf
         self.f = nn.Sequential(
-            Conv2d(in_channels=1, out_channels=256, kernel_size=4, stride=2, padding=1, bias=False),
+            Conv2d(in_channels=3, out_channels=64, kernel_size=4, stride=2, padding=1, bias=False),
             LeakyReLU(0.2, inplace=True),
+            Conv2d(in_channels=64, out_channels=128, kernel_size=4, stride=2, padding=1, bias=False),
+            BatchNorm2d(num_features=128),
+            LeakyReLU(0.2, inplace=True),
+            Conv2d(in_channels=128, out_channels=256, kernel_size=4, stride=2, padding=1, bias=False),
+            LeakyReLU(0.2, inplace=True),
+            BatchNorm2d(num_features=256),
             Conv2d(in_channels=256, out_channels=512, kernel_size=4, stride=2, padding=1, bias=False),
             BatchNorm2d(num_features=512),
             LeakyReLU(0.2, inplace=True),
-            Conv2d(in_channels=512, out_channels=1024, kernel_size=4, stride=2, padding=1, bias=False),
-            BatchNorm2d(num_features=1024),
-            LeakyReLU(0.2, inplace=True),
-            Conv2d(in_channels=1024, out_channels=1, kernel_size=4, bias=False),
+            Conv2d(in_channels=512, out_channels=1, kernel_size=4, bias=False),
+            # Conv2d(in_channels=512, out_channels=1024, kernel_size=4, stride=2, padding=1, bias=False),
+            # BatchNorm2d(num_features=1024),
+            # LeakyReLU(0.2, inplace=True),
+            # Conv2d(in_channels=1024, out_channels=1, kernel_size=4, bias=False),
             # Sigmoid()
         )
 
@@ -27,21 +34,30 @@ class Discriminator(nn.Module):
 
 class Generator(nn.Module):
 
-    def __init__(self):
+    def __init__(self, config):
         super(Generator, self).__init__()
 
         # https://pytorch.org/tutorials/beginner/dcgan_faces_tutorial.html, https://arxiv.org/pdf/1511.06434.pdf
         self.g = nn.Sequential(
-            ConvTranspose2d(in_channels=100, out_channels=1024, kernel_size=4, bias=False),
-            BatchNorm2d(num_features=1024),
-            ReLU(True),
-            ConvTranspose2d(in_channels=1024, out_channels=512, kernel_size=4, stride=2, padding=1, bias=False),
+            # ConvTranspose2d(in_channels=config['z_dim'], out_channels=1024, kernel_size=4, bias=False),
+            # BatchNorm2d(num_features=1024),
+            # ReLU(True),
+            # ConvTranspose2d(in_channels=1024, out_channels=512, kernel_size=4, stride=2, padding=1, bias=False),
+            ConvTranspose2d(in_channels=config['z_dim'], out_channels=512, kernel_size=4, bias=False),
             BatchNorm2d(num_features=512),
             ReLU(True),
             ConvTranspose2d(in_channels=512, out_channels=256, kernel_size=4, stride=2, padding=1, bias=False),
             BatchNorm2d(num_features=256),
             ReLU(True),
-            ConvTranspose2d(in_channels=256, out_channels=1, kernel_size=4, stride=2, padding=1, bias=False),
+            ConvTranspose2d(in_channels=256, out_channels=128, kernel_size=4, stride=2, padding=1, bias=False),
+            BatchNorm2d(num_features=128),
+            ReLU(True),
+            ConvTranspose2d(in_channels=128, out_channels=64, kernel_size=4, stride=2, padding=1, bias=False),
+            BatchNorm2d(num_features=64),
+            ReLU(True),
+            # ConvTranspose2d(in_channels=128, out_channels=3, kernel_size=4, stride=2, padding=1, bias=False),
+            # Tanh()
+            ConvTranspose2d(in_channels=64, out_channels=3, kernel_size=4, stride=2, padding=1, bias=False),
             Tanh()
         )
 
