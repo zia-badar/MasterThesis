@@ -35,6 +35,7 @@ class Encoder(nn.Module):
 
     def __init__(self, config):
         super(Encoder, self).__init__()
+        channels = 3 if config['dataset'] == 'cifar' else 1
         
         # self.e = ResNet(block=BasicBlock, layers=[2, 2, 2, 2], num_classes=config['z_dim']).cuda()
 
@@ -42,7 +43,7 @@ class Encoder(nn.Module):
 
         # https://pytorch.org/tutorials/beginner/dcgan_faces_tutorial.html, https://arxiv.org/pdf/1511.06434.pdf
         self.e = nn.Sequential(
-            Conv2d(in_channels=1, out_channels=128, kernel_size=4, stride=2, padding=1, bias=False),
+            Conv2d(in_channels=channels, out_channels=128, kernel_size=4, stride=2, padding=1, bias=False),
             BatchNorm2d(num_features=128),
             LeakyReLU(0.2, inplace=True),
             Conv2d(in_channels=128, out_channels=256, kernel_size=4, stride=2, padding=1, bias=False),
