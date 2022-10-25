@@ -1,7 +1,7 @@
 from typing import Optional, Callable, Type, Union, List
 
 import torch
-from torch import nn, Tensor
+from torch import nn, Tensor, tanh
 from torch.nn import Tanh
 
 
@@ -247,7 +247,7 @@ class ResNet(nn.Module):
         x = self.avgpool(x)
         x = torch.flatten(x, 1)
         x = self.fc(x)
-        x = Tanh(x)
+        x = tanh(x)
 
         return x
 

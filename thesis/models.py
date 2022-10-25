@@ -12,19 +12,19 @@ class Discriminator(nn.Module):
         super(Discriminator, self).__init__()
 
         self.f = nn.Sequential(
-            nn.Linear(in_features=config['z_dim'], out_features=64),
+            nn.Linear(in_features=config['z_dim'], out_features=config['z_dim'] * (2)),
             # BatchNorm1d(num_features=16),
             # Tanh(),
             LeakyReLU(0.2, inplace=True),
-            nn.Linear(in_features=64, out_features=128),
-            BatchNorm1d(num_features=128),
+            nn.Linear(in_features=config['z_dim'] * (2), out_features=config['z_dim'] * (2**2)),
+            BatchNorm1d(num_features=config['z_dim'] * (2**2)),
             # Tanh(),
             LeakyReLU(0.2, inplace=True),
-            nn.Linear(in_features=128, out_features=256),
-            BatchNorm1d(num_features=256),
+            nn.Linear(in_features=config['z_dim'] * (2**2), out_features=config['z_dim'] * (2**3)),
+            BatchNorm1d(num_features=config['z_dim'] * (2**3)),
             # Tanh(),
             LeakyReLU(0.2, inplace=True),
-            nn.Linear(in_features=256, out_features=1)
+            nn.Linear(in_features=config['z_dim'] * (2**3), out_features=1)
         )
 
 
@@ -36,28 +36,28 @@ class Encoder(nn.Module):
     def __init__(self, config):
         super(Encoder, self).__init__()
         
-        # self.e = ResNet(block=BasicBlock, layers=[2, 2, 2, 2], num_classes=config['z_dim'])
+        # self.e = ResNet(block=BasicBlock, layers=[2, 2, 2, 2], num_classes=config['z_dim']).cuda()
 
-        self.e = CustomResNet(num_classes=config['z_dim'])
+        # self.e = CustomResNet(num_classes=config['z_dim'])
 
-        # # https://pytorch.org/tutorials/beginner/dcgan_faces_tutorial.html, https://arxiv.org/pdf/1511.06434.pdf
-        # self.e = nn.Sequential(
-        #     Conv2d(in_channels=1, out_channels=128, kernel_size=4, stride=2, padding=1, bias=False),
-        #     BatchNorm2d(num_features=128),
-        #     LeakyReLU(0.2, inplace=True),
-        #     Conv2d(in_channels=128, out_channels=256, kernel_size=4, stride=2, padding=1, bias=False),
-        #     BatchNorm2d(num_features=256),
-        #     LeakyReLU(0.2, inplace=True),
-        #     Conv2d(in_channels=256, out_channels=512, kernel_size=4, stride=2, padding=1, bias=False),
-        #     BatchNorm2d(num_features=512),
-        #     LeakyReLU(0.2, inplace=True),
-        #     Conv2d(in_channels=512, out_channels=1024, kernel_size=4, stride=2, padding=1, bias=False),
-        #     BatchNorm2d(num_features=1024),
-        #     LeakyReLU(0.2, inplace=True),
-        #     Conv2d(in_channels=1024, out_channels=config['z_dim'], kernel_size=4, bias=False),
-        #     Tanh(),
-        #     Flatten()
-        # )
+        # https://pytorch.org/tutorials/beginner/dcgan_faces_tutorial.html, https://arxiv.org/pdf/1511.06434.pdf
+        self.e = nn.Sequential(
+            Conv2d(in_channels=1, out_channels=128, kernel_size=4, stride=2, padding=1, bias=False),
+            BatchNorm2d(num_features=128),
+            LeakyReLU(0.2, inplace=True),
+            Conv2d(in_channels=128, out_channels=256, kernel_size=4, stride=2, padding=1, bias=False),
+            BatchNorm2d(num_features=256),
+            LeakyReLU(0.2, inplace=True),
+            Conv2d(in_channels=256, out_channels=512, kernel_size=4, stride=2, padding=1, bias=False),
+            BatchNorm2d(num_features=512),
+            LeakyReLU(0.2, inplace=True),
+            Conv2d(in_channels=512, out_channels=1024, kernel_size=4, stride=2, padding=1, bias=False),
+            BatchNorm2d(num_features=1024),
+            LeakyReLU(0.2, inplace=True),
+            Conv2d(in_channels=1024, out_channels=config['z_dim'], kernel_size=4, bias=False),
+            Tanh(),
+            Flatten()
+        )
 
 
     def forward(self, x):

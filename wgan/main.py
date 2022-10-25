@@ -1,3 +1,4 @@
+import multiprocessing
 from cmath import sqrt
 
 import matplotlib.pyplot as plt
@@ -11,13 +12,12 @@ from torchvision.transforms import ToTensor, transforms, Resize, Normalize
 from tqdm import tqdm
 
 from wgan.dataset import RandomBoxDataset, OneClassDataset
-from wgan.dcgan import DCGAN_D, DCGAN_G
 from wgan.models import Discriminator, Generator
 
 
 def train(config):
     if config['dataset'] == 'mnist':
-        dataset = MNIST(root='../', train=True, transform=transforms.Compose([ToTensor(), Resize(size=(config['height'], config['width'])), Normalize((0.5, 0.5, 0.5), (0.5, 0.5, 0.5))]), download=True)
+        dataset = OneClassDataset(MNIST(root='../', train=True, download=True), zero_class_labels=[5], transform=transforms.Compose([ToTensor(), Resize(size=(config['height'], config['width'])), Normalize((0.5), (0.5))]))
     if config['dataset'] == 'cifar':
         dataset = OneClassDataset(CIFAR10(root='../', train=True, download=True), one_class_labels=[4], transform=transforms.Compose( [ToTensor(), Resize(size=(config['height'], config['width'])), Normalize((0.5, 0.5, 0.5), (0.5, 0.5, 0.5))]))
     elif config['dataset'] == 'random_box':
@@ -87,7 +87,7 @@ def evaluate(model, config):
         stack = (int)(sqrt(config['batch_size']).real)
         samples = samples.permute(1, 0, 2, 3).reshape(3, stack, stack, config['height'], config['width']).permute(0, 1, 3, 2, 4).reshape(3, stack*config['height'], stack*config['width']).cpu().numpy()
 
-        samples = (samples + 1) / 2
+        # samples = (samples + 1) / 2
         samples = np.clip(samples, 0., 1.)
 
         _, ax = plt.subplots()
@@ -97,8 +97,7 @@ def evaluate(model, config):
     model.train()
 
 if __name__ == '__main__':
-
-    # config = {'batch_size': 64, 'n_critic': 5, 'clip': 1e-2, 'learning_rate': 5e-5, 'epochs': (int)(1e7), 'height': 32, 'width': 32, 'z_dim': 100, 'dataset': 'mnist'}
+    # config = {'batch_size': 64, 'n_critic': 5, 'clip': 1e-2, 'learning_rate': 5e-5, 'epochs': (int)(1e7), 'height': 64, 'width': 64, 'z_dim': 100, 'dataset': 'mnist'}
     # config = {'batch_size': 64, 'n_critic': 5, 'clip': 1e-2, 'learning_rate': 5e-5, 'epochs': (int)(1e7), 'height': 32, 'width': 32, 'z_dim': 100, 'dataset': 'random_box'}
     config = {'batch_size': 64, 'n_critic': 5, 'clip': 1e-2, 'learning_rate': 5e-5, 'epochs': (int)(1e7), 'height': 64, 'width': 64, 'z_dim': 100, 'dataset': 'cifar'}
 

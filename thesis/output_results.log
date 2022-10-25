@@ -1,0 +1,38 @@
+class: 0 : airplane, roc_auc:  0.58
+class: 2 : bird, roc_auc:  0.63
+class: 1 : automobile, roc_auc:  0.37
+class: 3 : cat, roc_auc:  0.54
+class: 4 : deer, roc_auc:  0.64
+class: 5 : dog, roc_auc:  0.49
+class: 6 : frog, roc_auc:  0.46
+class: 9 : truck, roc_auc:  0.35
+class: 8 : ship, roc_auc:  0.56
+class: 7 : horse, roc_auc:  0.43
+
+
+
+
+class: 4 : 4 - four, roc_auc:  0.62
+class: 0 : 0 - zero, roc_auc:  0.24
+class: 2 : 2 - two, roc_auc:  0.47
+class: 3 : 3 - three, roc_auc:  0.50
+
+
+
+
+
+with generator
+class: 4 : 4 - four, roc_auc:  0.32
+class: 0 : 0 - zero, roc_auc:  0.24
+class: 2 : 2 - two, roc_auc:  0.37
+class: 3 : 3 - three, roc_auc:  0.43
+class: 1 : 1 - one, roc_auc:  0.33
+
+
+
+with generator, 8 dim
+class: 4 : 4 - four, roc_auc:  0.35
+class: 0 : 0 - zero, roc_auc:  0.40
+class: 2 : 2 - two, roc_auc:  0.69
+class: 3 : 3 - three, roc_auc:  0.33
+class: 1 : 1 - one, roc_auc:  0.34
