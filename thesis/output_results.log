@@ -1,0 +1,5 @@
+class: 0, dataset: mnist, roc_auc:  0.59
+class: 1, dataset: mnist, roc_auc:  0.64
+
+class: 2, dataset: mnist, roc_auc:  0.41
+class: 3, dataset: mnist, roc_auc:  0.48

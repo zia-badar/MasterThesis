@@ -3,6 +3,7 @@ import multiprocessing
 import numpy as np
 import torch
 from sklearn.metrics import roc_auc_score
+from torch import norm
 from torch.distributions import MultivariateNormal
 from torch.optim import RMSprop
 from torch.utils.data import DataLoader, random_split, ConcatDataset
@@ -103,7 +104,7 @@ def train(config):
     roc_auc = evaluate(trn_dataloader, val_dataloader, e)
 
     with open('output_results.log', 'a') as file:
-        file.write(f'class: {config["class"]}, dataset: {config["dataset"]}, roc_auc: {roc_auc : .2f}\n')
+        file.write(f'class: {config["class"]}, dataset: {config["dataset"]}, roc_auc: {roc_auc}\n')
 
 def evaluate(train_dataloader, validation_dataloader, e):
     with torch.no_grad():
@@ -126,26 +127,26 @@ def evaluate(train_dataloader, validation_dataloader, e):
         for _x, _l in validation_dataloader:
             _x = _x.cuda()
             z = e(_x)
-            # scores[0].append(dist.log_prob(z))
+            scores[0].append(dist.log_prob(z))
             scores[1].append(id_dist.log_prob(z))
-            # scores[2].append(norm(z, dim=1))
+            scores[2].append(norm(z, dim=1))
             targets.append(_l)
 
-        # scores[0] = torch.cat(scores[0]).cpu().numpy()
+        scores[0] = torch.cat(scores[0]).cpu().numpy()
         scores[1] = torch.cat(scores[1]).cpu().numpy()
-        # scores[2] = torch.cat(scores[2]).cpu().numpy()
+        scores[2] = torch.cat(scores[2]).cpu().numpy()
         targets = torch.cat(targets).numpy()
 
         roc_auc = []
-        # roc_auc.append(roc_auc_score(targets, scores[0]))
+        roc_auc.append(roc_auc_score(targets, scores[0]))
         roc_auc.append(roc_auc_score(targets, scores[1]))
-        # roc_auc.append(roc_auc_score(targets, scores[2]))
+        roc_auc.append(roc_auc_score(targets, scores[2]))
 
-        # print(f'iter: {iter}, roc: {roc_auc}, mean: {mean}, cov: {var}')
+        print(f'iter: {iter}, roc: {roc_auc}, mean: {mean}, cov: {var}')
 
         e.train()
 
-    return roc_auc[0]
+    return roc_auc
 
 # https://stackoverflow.com/questions/6974695/python-process-pool-non-daemonic
 class NoDaemonProcess(multiprocessing.Process):
