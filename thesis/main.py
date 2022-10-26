@@ -63,7 +63,8 @@ def train(config):
         return np.array_repr(tensor.detach().cpu().numpy()).replace('\n', '')
     resize = Resize(size=(config['height'], config['width']))
 
-    # print(f'roc_auc: {evaluate(trn_dataloader, val_dataloader, e, config)}')
+    starting_roc = evaluate(trn_dataloader, val_dataloader, e, config)
+    print(f'roc_auc: class: {config["class"]}, {starting_roc}')
 
     train_progress_bar = tqdm(range(config['epochs']))
     iter = 0
@@ -104,7 +105,7 @@ def train(config):
     torch.save(e.state_dict(), f'model_{config["dataset"]}_{config["class"]}')
 
     with open('output_results.log', 'a') as file:
-        file.write(f'class: {config["class"]}, dataset: {config["dataset"]}, roc_auc: {roc_auc}\n')
+        file.write(f'class: {config["class"]}, dataset: {config["dataset"]}, starting_roc_auc: {starting_roc} roc_auc: {roc_auc}\n')
 
 def evaluate(train_dataloader, validation_dataloader, e, config):
     with torch.no_grad():
@@ -139,7 +140,7 @@ def evaluate(train_dataloader, validation_dataloader, e, config):
         roc_auc = []
         roc_auc.append(roc_auc_score(targets, scores[0]))
         roc_auc.append(roc_auc_score(targets, scores[1]))
-        roc_auc.append(roc_auc_score(targets, scores[2]))
+        roc_auc.append(roc_auc_score(np.abs(targets - 1), scores[2]))
 
         print(f'iter: {iter}, roc: {roc_auc}, mean: {mean}, cov: {var}')
 
@@ -165,14 +166,16 @@ class NoDaemonProcessPool(multiprocessing.pool.Pool):
         return proc
 
 if __name__ == '__main__':
-    config = {'height': 64, 'width': 64, 'batch_size': 64, 'n_critic': 6, 'clip': 1e-2, 'learning_rate': 5e-5, 'epochs': (int)(1000), 'z_dim': 128, 'dataset': 'cifar', 'var_scale': 1}
+    config = {'height': 64, 'width': 64, 'batch_size': 64, 'n_critic': 6, 'clip': 1e-2, 'learning_rate': 5e-5, 'epochs': (int)(1000), 'z_dim': 32, 'dataset': 'cifar', 'var_scale': 1}
     # config = {'height': 64, 'width': 64, 'batch_size': 64, 'n_critic': 6, 'clip': 1e-2, 'learning_rate': 5e-5, 'epochs': (int)(1000), 'z_dim': 32, 'dataset': 'mnist', 'var_scale': 1}
+
     with NoDaemonProcessPool(processes=10) as pool:
         configs = []
-        for i in range(10):
+        for i in range(5):
             _config = config.copy()
             _config['class'] = i
             configs.append(_config)
+            print(i)
 
         for _ in pool.imap_unordered(train, configs):
             pass
