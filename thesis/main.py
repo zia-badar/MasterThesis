@@ -56,15 +56,14 @@ def train(config):
 
     optim_f = RMSprop(f.parameters(), lr=config['learning_rate'], weight_decay=1e-6)
     optim_e = RMSprop(e.parameters(), lr=config['learning_rate'], weight_decay=1e-6)
-    # scaling = 1e-1
-    scaling = 1
+    scaling = config['var_scale']
     z_dist = MultivariateNormal(torch.zeros(config['z_dim']).cuda(), scaling*torch.eye(config['z_dim']).cuda())
 
     def pretty_tensor(tensor):
         return np.array_repr(tensor.detach().cpu().numpy()).replace('\n', '')
     resize = Resize(size=(config['height'], config['width']))
 
-    # print(f'roc_auc: {evaluate(trn_dataloader, val_dataloader, e)}')
+    # print(f'roc_auc: {evaluate(trn_dataloader, val_dataloader, e, config)}')
 
     train_progress_bar = tqdm(range(config['epochs']))
     iter = 0
@@ -95,18 +94,19 @@ def train(config):
                 # train_progress_bar.set_description(f'encoding_mean: {pretty_tensor(torch.round(torch.mean(e_x, dim=0), decimals=4))}, encoding_variance: {pretty_tensor(torch.round(torch.var(e_x, dim=0, unbiased=False), decimals=4))}, encoding co-variance: {pretty_tensor(a)}, {b}')
 
                 # if iter % ((config['n_critic'] + 1)*10*10) == 0:
-                #     roc_auc = evaluate(trn_dataloader, val_dataloader, e)
+                #     roc_auc = evaluate(trn_dataloader, val_dataloader, e, config)
                 #     print(f'roc_auc: {roc_auc}')
 
             torch.cuda.empty_cache()
             iter += 1
 
-    roc_auc = evaluate(trn_dataloader, val_dataloader, e)
+    roc_auc = evaluate(trn_dataloader, val_dataloader, e, config)
+    torch.save(e.state_dict(), f'model_{config["dataset"]}_{config["class"]}')
 
     with open('output_results.log', 'a') as file:
         file.write(f'class: {config["class"]}, dataset: {config["dataset"]}, roc_auc: {roc_auc}\n')
 
-def evaluate(train_dataloader, validation_dataloader, e):
+def evaluate(train_dataloader, validation_dataloader, e, config):
     with torch.no_grad():
         e.eval()
         targets = []
@@ -120,8 +120,7 @@ def evaluate(train_dataloader, validation_dataloader, e):
         mean = torch.mean(zs, dim=0)
         var = torch.cov(zs.T, correction=0)
         dist = MultivariateNormal(loc=mean, covariance_matrix=var)
-        # scaling = 1e-1
-        scaling = 1
+        scaling = config['var_scale']
         id_dist = MultivariateNormal(loc=torch.zeros(mean.shape[0]).cuda(), covariance_matrix=scaling*torch.eye(mean.shape[0]).cuda())
 
         for _x, _l in validation_dataloader:
@@ -166,15 +165,8 @@ class NoDaemonProcessPool(multiprocessing.pool.Pool):
         return proc
 
 if __name__ == '__main__':
-    config = {'height': 64, 'width': 64, 'batch_size': 64, 'n_critic': 6, 'clip': 1e-2, 'learning_rate': 5e-5, 'epochs': (int)(1000), 'z_dim': 128, 'dataset': 'cifar'}
-    # config = {'height': 64, 'width': 64, 'batch_size': 64, 'n_critic': 6, 'clip': 1e-2, 'learning_rate': 5e-5, 'epochs': (int)(1000), 'z_dim': 32, 'dataset': 'mnist'}
+    config = {'height': 64, 'width': 64, 'batch_size': 64, 'n_critic': 6, 'clip': 1e-2, 'learning_rate': 5e-5, 'epochs': (int)(1000), 'z_dim': 128, 'dataset': 'cifar', 'var_scale': 1}
+    # config = {'height': 64, 'width': 64, 'batch_size': 64, 'n_critic': 6, 'clip': 1e-2, 'learning_rate': 5e-5, 'epochs': (int)(1000), 'z_dim': 32, 'dataset': 'mnist', 'var_scale': 1}
 
-    with NoDaemonProcessPool(processes=10) as pool:
-        configs = []
-        for i in range(10):
-            _config = config.copy()
-            _config['class'] = i
-            configs.append(_config)
-
-        for _ in pool.imap_unordered(train, configs):
-            pass
+    config['class'] = 3
+    train(config)
