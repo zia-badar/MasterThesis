@@ -11,3 +11,4 @@ wgan/model_ *
 
 thesis/output_results.log
 thesis/model_*
+thesis/best_model_*

@@ -66,6 +66,9 @@ def train(config):
 
     starting_roc = evaluate(trn_dataloader, val_dataloader, e, config)
     print(f'roc_auc: class: {config["class"]}, {starting_roc}')
+    best_var = 1000
+    best_var_roc = None
+    best_roc = [0, 0, 0]
 
     train_progress_bar = tqdm(range(config['epochs']))
     iter = 0
@@ -105,7 +108,17 @@ def train(config):
         if (epoch + 1) % 10 == 0:
             roc_auc = evaluate(trn_dataloader, val_dataloader, e, config)
             var = get_variance(trn_dataloader, e)
-            print(f'roc: {roc_auc}, var: {var}')
+            if var < best_var:
+                best_var = var
+                best_var_roc = roc_auc
+
+            best_roc = [max(best_roc[0], roc_auc[0]), max(best_roc[1], roc_auc[1]), max(best_roc[2], roc_auc[2])]
+
+            print(f'var: {var}, roc: {roc_auc}')
+            print(f'best_var: {best_var}, best_var_roc: {best_var_roc}')
+            print(f'best_roc: {best_roc}')
+
+            # print(f'roc: {roc_auc}, var: {var}')
             # with open('output_results.log', 'a') as file:
             #     file.write(f'class: {config["class"]}, dataset: {config["dataset"]}, starting_roc_auc: {starting_roc} roc_auc: {roc_auc}\n')
             # torch.save(e.state_dict(), f'model_{config["dataset"]}_{config["class"]}_{epoch}')
@@ -178,7 +191,7 @@ if __name__ == '__main__':
     config = {'height': 64, 'width': 64, 'batch_size': 64, 'n_critic': 6, 'clip': 1e-2, 'learning_rate': 5e-5, 'epochs': (int)(1000), 'z_dim': 16, 'dataset': 'cifar', 'var_scale': 1}
     # config = {'height': 64, 'width': 64, 'batch_size': 64, 'n_critic': 6, 'clip': 1e-2, 'learning_rate': 5e-5, 'epochs': (int)(1000), 'z_dim': 32, 'dataset': 'mnist', 'var_scale': 1}
 
-    config['class'] = 5
+    config['class'] = 6
     train(config)
 
     # with NoDaemonProcessPool(processes=10) as pool:
