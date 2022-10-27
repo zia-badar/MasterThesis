@@ -13,6 +13,7 @@ from tqdm import tqdm
 
 from thesis.dataset import OneClassDataset
 from thesis.models import Encoder, Discriminator
+from thesis.normality import get_variance
 
 
 def train(config):
@@ -101,11 +102,13 @@ def train(config):
             torch.cuda.empty_cache()
             iter += 1
 
-        if (epoch + 1) % 100 == 0:
+        if (epoch + 1) % 10 == 0:
             roc_auc = evaluate(trn_dataloader, val_dataloader, e, config)
-            with open('output_results.log', 'a') as file:
-                file.write(f'class: {config["class"]}, dataset: {config["dataset"]}, starting_roc_auc: {starting_roc} roc_auc: {roc_auc}\n')
-            torch.save(e.state_dict(), f'model_{config["dataset"]}_{config["class"]}_{epoch}')
+            var = get_variance(trn_dataloader, e)
+            print(f'roc: {roc_auc}, var: {var}')
+            # with open('output_results.log', 'a') as file:
+            #     file.write(f'class: {config["class"]}, dataset: {config["dataset"]}, starting_roc_auc: {starting_roc} roc_auc: {roc_auc}\n')
+            # torch.save(e.state_dict(), f'model_{config["dataset"]}_{config["class"]}_{epoch}')
 
     roc_auc = evaluate(trn_dataloader, val_dataloader, e, config)
     with open('output_results.log', 'a') as file:
@@ -175,7 +178,7 @@ if __name__ == '__main__':
     config = {'height': 64, 'width': 64, 'batch_size': 64, 'n_critic': 6, 'clip': 1e-2, 'learning_rate': 5e-5, 'epochs': (int)(1000), 'z_dim': 16, 'dataset': 'cifar', 'var_scale': 1}
     # config = {'height': 64, 'width': 64, 'batch_size': 64, 'n_critic': 6, 'clip': 1e-2, 'learning_rate': 5e-5, 'epochs': (int)(1000), 'z_dim': 32, 'dataset': 'mnist', 'var_scale': 1}
 
-    config['class'] = 7
+    config['class'] = 5
     train(config)
 
     # with NoDaemonProcessPool(processes=10) as pool:
