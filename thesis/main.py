@@ -11,6 +11,9 @@ from torchvision.datasets import MNIST, CIFAR10
 from torchvision.transforms import ToTensor, transforms, Resize, Normalize
 from tqdm import tqdm
 
+import sys
+sys.path.append('/home/zia/Desktop/MasterThesis/')
+
 from thesis.dataset import OneClassDataset
 from thesis.models import Encoder, Discriminator
 from thesis.normality import get_variance
@@ -111,12 +114,14 @@ def train(config):
             if var < best_var:
                 best_var = var
                 best_var_roc = roc_auc
+                best_epoch = epoch
 
             best_roc = [max(best_roc[0], roc_auc[0]), max(best_roc[1], roc_auc[1]), max(best_roc[2], roc_auc[2])]
 
             print(f'var: {var}, roc: {roc_auc}')
             print(f'best_var: {best_var}, best_var_roc: {best_var_roc}')
             print(f'best_roc: {best_roc}')
+            print(f'best_epoch: {best_epoch}')
 
             # print(f'roc: {roc_auc}, var: {var}')
             # with open('output_results.log', 'a') as file:
@@ -191,7 +196,7 @@ if __name__ == '__main__':
     config = {'height': 64, 'width': 64, 'batch_size': 64, 'n_critic': 6, 'clip': 1e-2, 'learning_rate': 5e-5, 'epochs': (int)(1000), 'z_dim': 16, 'dataset': 'cifar', 'var_scale': 1}
     # config = {'height': 64, 'width': 64, 'batch_size': 64, 'n_critic': 6, 'clip': 1e-2, 'learning_rate': 5e-5, 'epochs': (int)(1000), 'z_dim': 32, 'dataset': 'mnist', 'var_scale': 1}
 
-    config['class'] = 6
+    config['class'] = (int)(sys.argv[1])
     train(config)
 
     # with NoDaemonProcessPool(processes=10) as pool:
