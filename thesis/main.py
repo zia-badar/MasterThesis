@@ -68,7 +68,7 @@ def train(config):
 
     train_progress_bar = tqdm(range(config['epochs']))
     iter = 0
-    for _ in train_progress_bar:
+    for epoch in train_progress_bar:
         for (x, l) in dataloader:
             x = x.cuda()
 
@@ -101,11 +101,17 @@ def train(config):
             torch.cuda.empty_cache()
             iter += 1
 
-    roc_auc = evaluate(trn_dataloader, val_dataloader, e, config)
-    torch.save(e.state_dict(), f'model_{config["dataset"]}_{config["class"]}')
+        if (epoch + 1) % 100 == 0:
+            roc_auc = evaluate(trn_dataloader, val_dataloader, e, config)
+            with open('output_results.log', 'a') as file:
+                file.write(f'class: {config["class"]}, dataset: {config["dataset"]}, starting_roc_auc: {starting_roc} roc_auc: {roc_auc}\n')
+            torch.save(e.state_dict(), f'model_{config["dataset"]}_{config["class"]}_{epoch}')
 
+    roc_auc = evaluate(trn_dataloader, val_dataloader, e, config)
     with open('output_results.log', 'a') as file:
-        file.write(f'class: {config["class"]}, dataset: {config["dataset"]}, starting_roc_auc: {starting_roc} roc_auc: {roc_auc}\n')
+        file.write(
+            f'class: {config["class"]}, dataset: {config["dataset"]}, starting_roc_auc: {starting_roc} roc_auc: {roc_auc}\n')
+    torch.save(e.state_dict(), f'model_{config["dataset"]}_{config["class"]}')
 
 def evaluate(train_dataloader, validation_dataloader, e, config):
     with torch.no_grad():
@@ -166,16 +172,18 @@ class NoDaemonProcessPool(multiprocessing.pool.Pool):
         return proc
 
 if __name__ == '__main__':
-    config = {'height': 64, 'width': 64, 'batch_size': 64, 'n_critic': 6, 'clip': 1e-2, 'learning_rate': 5e-5, 'epochs': (int)(1000), 'z_dim': 32, 'dataset': 'cifar', 'var_scale': 1}
+    config = {'height': 64, 'width': 64, 'batch_size': 64, 'n_critic': 6, 'clip': 1e-2, 'learning_rate': 5e-5, 'epochs': (int)(1000), 'z_dim': 16, 'dataset': 'cifar', 'var_scale': 1}
     # config = {'height': 64, 'width': 64, 'batch_size': 64, 'n_critic': 6, 'clip': 1e-2, 'learning_rate': 5e-5, 'epochs': (int)(1000), 'z_dim': 32, 'dataset': 'mnist', 'var_scale': 1}
 
-    with NoDaemonProcessPool(processes=10) as pool:
-        configs = []
-        for i in range(5):
-            _config = config.copy()
-            _config['class'] = i
-            configs.append(_config)
-            print(i)
+    config['class'] = 7
+    train(config)
 
-        for _ in pool.imap_unordered(train, configs):
-            pass
+    # with NoDaemonProcessPool(processes=10) as pool:
+    #     configs = []
+    #     for i in range(5, 10):
+    #         _config = config.copy()
+    #         _config['class'] = i
+    #         configs.append(_config)
+    #
+    #     for _ in pool.imap_unordered(train, configs):
+    #         pass
