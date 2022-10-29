@@ -3,8 +3,10 @@ import multiprocessing
 import numpy as np
 import torch
 from sklearn.metrics import roc_auc_score
-from torch import norm
+from torch import norm, kl_div
 from torch.distributions import MultivariateNormal
+from torch.linalg import eig
+from torch.nn import KLDivLoss
 from torch.optim import RMSprop
 from torch.utils.data import DataLoader, random_split, ConcatDataset
 from torchvision.datasets import MNIST, CIFAR10
@@ -73,6 +75,13 @@ def train(config):
     best_var_roc = None
     best_roc = [0, 0, 0]
 
+    col_epoch = -1
+    max_var = 0
+    max_eig_val = -1
+    max_eig_val_epoch = -1
+    min_eig_val = 1000
+    min_eig_val_epoch = -1
+
     train_progress_bar = tqdm(range(config['epochs']))
     iter = 0
     for epoch in train_progress_bar:
@@ -109,19 +118,39 @@ def train(config):
             iter += 1
 
         if (epoch + 1) % 10 == 0:
-            roc_auc = evaluate(trn_dataloader, val_dataloader, e, config)
+            cov, roc_auc = evaluate(trn_dataloader, val_dataloader, e, config)
             var = get_variance(trn_dataloader, e)
             if var < best_var:
                 best_var = var
                 best_var_roc = roc_auc
                 best_epoch = epoch
 
+            if var > 1:
+                col_epoch = epoch
+            if var > max_var:
+                max_var = var
+
             best_roc = [max(best_roc[0], roc_auc[0]), max(best_roc[1], roc_auc[1]), max(best_roc[2], roc_auc[2])]
 
+            L, V = eig(cov)
+            max_eig = torch.max(torch.real(L)).item()
+            min_eig = torch.min(torch.real(L)).item()
+            if max_eig_val < max_eig:
+                max_eig_val = max_eig
+                max_eig_val_epoch = epoch
+
+            if min_eig_val > min_eig:
+                min_eig_val = min_eig
+                min_eig_val_epoch = epoch
+
+            print(f'eig value: {L}\n, eig vector: {V}')
+            print(f'eig_min: {min_eig_val}, epoch: {min_eig_val_epoch}')
+            print(f'eig_max: {max_eig_val}, epoch: {max_eig_val_epoch}')
             print(f'var: {var}, roc: {roc_auc}')
-            print(f'best_var: {best_var}, best_var_roc: {best_var_roc}')
+            print(f'min_var: {best_var}, min_var_roc: {best_var_roc}, best_epoch: {best_epoch}')
+            print(f'max_var: {max_var}')
             print(f'best_roc: {best_roc}')
-            print(f'best_epoch: {best_epoch}')
+            print(f'col_epoch: {col_epoch}')
 
             # print(f'roc: {roc_auc}, var: {var}')
             # with open('output_results.log', 'a') as file:
@@ -173,7 +202,7 @@ def evaluate(train_dataloader, validation_dataloader, e, config):
 
         e.train()
 
-    return roc_auc
+    return var, roc_auc
 
 # https://stackoverflow.com/questions/6974695/python-process-pool-non-daemonic
 class NoDaemonProcess(multiprocessing.Process):
@@ -193,10 +222,13 @@ class NoDaemonProcessPool(multiprocessing.pool.Pool):
         return proc
 
 if __name__ == '__main__':
-    config = {'height': 64, 'width': 64, 'batch_size': 64, 'n_critic': 6, 'clip': 1e-2, 'learning_rate': 5e-5, 'epochs': (int)(1000), 'z_dim': 16, 'dataset': 'cifar', 'var_scale': 1}
+    _class = (int)(sys.argv[1])
+    _dim = (int)(sys.argv[2])
+
+    config = {'height': 64, 'width': 64, 'batch_size': 64, 'n_critic': 6, 'clip': 1e-2, 'learning_rate': 5e-5, 'epochs': (int)(100000), 'z_dim': _dim, 'dataset': 'cifar', 'var_scale': 1}
     # config = {'height': 64, 'width': 64, 'batch_size': 64, 'n_critic': 6, 'clip': 1e-2, 'learning_rate': 5e-5, 'epochs': (int)(1000), 'z_dim': 32, 'dataset': 'mnist', 'var_scale': 1}
 
-    config['class'] = (int)(sys.argv[1])
+    config['class'] = _class
     train(config)
 
     # with NoDaemonProcessPool(processes=10) as pool:
