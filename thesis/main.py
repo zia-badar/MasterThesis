@@ -82,6 +82,12 @@ def train(config):
     min_eig_val = 1000
     min_eig_val_epoch = -1
 
+    max_dit = -1
+    min_dit = 1000
+    min_dit_roc = None
+    min_dit_epoch = -1
+    max_dit_epoch = -1
+
     train_progress_bar = tqdm(range(config['epochs']))
     iter = 0
     for epoch in train_progress_bar:
@@ -118,8 +124,8 @@ def train(config):
             iter += 1
 
         if (epoch + 1) % 10 == 0:
-            cov, roc_auc = evaluate(trn_dataloader, val_dataloader, e, config)
-            var = get_variance(trn_dataloader, e)
+            cov, var, roc_auc = evaluate(trn_dataloader, val_dataloader, e, config)
+            # var = get_variance(trn_dataloader, e)
             if var < best_var:
                 best_var = var
                 best_var_roc = roc_auc
@@ -139,14 +145,27 @@ def train(config):
                 max_eig_val = max_eig
                 max_eig_val_epoch = epoch
 
-            if min_eig_val > min_eig:
+            if min_eig_val > min_eig and epoch > 30:
                 min_eig_val = min_eig
                 min_eig_val_epoch = epoch
+
+            dit = torch.prod(torch.real(L)).item()
+
+            if dit < min_dit:
+                min_dit = dit
+                min_dit_epoch = epoch
+                min_dit_roc = roc_auc
+
+            if dit > max_dit:
+                max_dit = dit
+                max_dit_epoch = epoch
 
             print(f'eig value: {L}\n, eig vector: {V}')
             print(f'eig_min: {min_eig_val}, epoch: {min_eig_val_epoch}')
             print(f'eig_max: {max_eig_val}, epoch: {max_eig_val_epoch}')
-            print(f'var: {var}, roc: {roc_auc}')
+            print(f'dit_min: {min_dit}, roc: {min_dit_roc}, epoch: {min_dit_epoch}')
+            print(f'dit_max: {max_dit}, epoch: {max_dit_epoch}')
+            print(f'var: {var}, dit: {dit}, roc: {roc_auc}')
             print(f'min_var: {best_var}, min_var_roc: {best_var_roc}, best_epoch: {best_epoch}')
             print(f'max_var: {max_var}')
             print(f'best_roc: {best_roc}')
@@ -175,8 +194,8 @@ def evaluate(train_dataloader, validation_dataloader, e, config):
 
         zs = torch.cat(zs)
         mean = torch.mean(zs, dim=0)
-        var = torch.cov(zs.T, correction=0)
-        dist = MultivariateNormal(loc=mean, covariance_matrix=var)
+        co_var = torch.cov(zs.T, correction=0)
+        dist = MultivariateNormal(loc=mean, covariance_matrix=co_var)
         scaling = config['var_scale']
         id_dist = MultivariateNormal(loc=torch.zeros(mean.shape[0]).cuda(), covariance_matrix=scaling*torch.eye(mean.shape[0]).cuda())
 
@@ -198,11 +217,21 @@ def evaluate(train_dataloader, validation_dataloader, e, config):
         roc_auc.append(roc_auc_score(targets, scores[1]))
         roc_auc.append(roc_auc_score(np.abs(targets - 1), scores[2]))
 
-        print(f'iter: {iter}, roc: {roc_auc}, mean: {mean}, cov: {var}')
+        var_samples = []
+        for i in range(100):
+            random_unit = torch.rand_like(zs[0])
+            random_unit /= torch.norm(random_unit)
+
+            projections = zs @ random_unit
+            var_samples.append(torch.var(projections).item())
+
+        var = torch.tensor(var_samples).mean().item()
+
+        print(f'iter: {iter}, roc: {roc_auc}, mean: {mean}, cov: {co_var}')
 
         e.train()
 
-    return var, roc_auc
+    return co_var, var, roc_auc
 
 # https://stackoverflow.com/questions/6974695/python-process-pool-non-daemonic
 class NoDaemonProcess(multiprocessing.Process):
