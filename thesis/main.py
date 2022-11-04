@@ -8,7 +8,7 @@ from torch.distributions import MultivariateNormal
 from torch.linalg import eig
 from torch.nn import KLDivLoss
 from torch.optim import RMSprop
-from torch.utils.data import DataLoader, random_split, ConcatDataset
+from torch.utils.data import DataLoader, random_split, ConcatDataset, Subset
 from torchvision.datasets import MNIST, CIFAR10
 from torchvision.transforms import ToTensor, transforms, Resize, Normalize
 from tqdm import tqdm
@@ -27,23 +27,22 @@ def train(config):
     outlier.remove(config['class'])
 
     if config['dataset'] == 'cifar':
-        dataset = OneClassDataset(CIFAR10(root='../', train=True, download=True), one_class_labels=inlier, transform=transforms.Compose([ToTensor(), Resize(size=(config['height'], config['width'])), Normalize((0.5, 0.5, 0.5), (0.5, 0.5, 0.5))]))
+        dataset = CIFAR10(root='../', train=True, download=True)
+        normalization_transform = Normalize((0.5, 0.5, 0.5), (0.5, 0.5, 0.5))
     elif config['dataset'] == 'mnist':
-        dataset = OneClassDataset(MNIST(root='../', train=True, download=True), one_class_labels=inlier, transform=transforms.Compose([ToTensor(), Resize(size=(config['height'], config['width'])), Normalize((0.5), (0.5))]))
+        dataset = MNIST(root='../', train=True, download=True)
+        normalization_transform = Normalize((0.5), (0.5))
 
-    split_size = (int)(.7*len(dataset))
-    dataset_splits = random_split(dataset, [split_size, len(dataset) - split_size])
-    dataset = dataset_splits[0]
+    inlier_dataset = OneClassDataset(dataset, one_class_labels=inlier, transform=transforms.Compose( [ToTensor(), Resize(size=(config['height'], config['width'])), normalization_transform]))
+    outlier_dataset = OneClassDataset(dataset, zero_class_labels=outlier, transform=transforms.Compose( [ToTensor(), Resize(size=(config['height'], config['width'])), normalization_transform]))
 
-    if config['dataset'] == 'cifar':
-        _dataset = OneClassDataset(CIFAR10(root='../', train=True, download=True), zero_class_labels=outlier, transform=transforms.Compose([ToTensor(), Resize(size=(config['height'], config['width'])), Normalize((0.5, 0.5, 0.5), (0.5, 0.5, 0.5))]))
-    elif config['dataset'] == 'mnist':
-        _dataset = OneClassDataset(MNIST(root='../', train=True, download=True), zero_class_labels=outlier, transform=transforms.Compose( [ToTensor(), Resize(size=(config['height'], config['width'])), Normalize((0.5), (0.5))]))
+    train_inlier_dataset = Subset(inlier_dataset, range(0, (int)(.7*len(inlier_dataset))))
+    validation_inlier_dataset = Subset(inlier_dataset, range((int)(.7*len(inlier_dataset)), len(inlier_dataset)))
+    validation_dataset = ConcatDataset([validation_inlier_dataset, outlier_dataset])
 
-    val_dataset = ConcatDataset([_dataset, dataset_splits[1]])
-    val_dataloader = DataLoader(val_dataset, batch_size=config['batch_size'], shuffle=True, drop_last=True, num_workers=20)
-    dataloader = DataLoader(dataset, batch_size=config['batch_size'], shuffle=True, drop_last=True, num_workers=20)
-    trn_dataloader = DataLoader(dataset, batch_size=config['batch_size'], shuffle=True, drop_last=True, num_workers=20)
+    train_dataset = train_inlier_dataset
+    # train_dataloader = DataLoader(train_dataset, batch_size=config['batch_size'], shuffle=True, drop_last=True, num_workers=20)
+    # validation_dataloader = DataLoader(validation_dataset, batch_size=config['batch_size'], shuffle=True, drop_last=True, num_workers=20)
 
     def weights_init(m):
         classname = m.__class__.__name__
@@ -65,11 +64,7 @@ def train(config):
     scaling = config['var_scale']
     z_dist = MultivariateNormal(torch.zeros(config['z_dim']).cuda(), scaling*torch.eye(config['z_dim']).cuda())
 
-    def pretty_tensor(tensor):
-        return np.array_repr(tensor.detach().cpu().numpy()).replace('\n', '')
-    resize = Resize(size=(config['height'], config['width']))
-
-    starting_roc = evaluate(trn_dataloader, val_dataloader, e, config)
+    starting_roc = evaluate(train_dataset, validation_dataset, e, config)
     print(f'roc_auc: class: {config["class"]}, {starting_roc}')
     best_var = 1000
     best_var_roc = None
@@ -88,51 +83,67 @@ def train(config):
     min_dit_epoch = -1
     max_dit_epoch = -1
 
-    train_progress_bar = tqdm(range(config['epochs']))
-    iter = 0
-    for epoch in train_progress_bar:
-        for (x, l) in dataloader:
+
+    discriminator_dataloader_iter = iter(DataLoader(train_dataset, batch_size=config['batch_size'], shuffle=True, drop_last=True, num_workers=20))
+    encoder_dataloader_iter = iter(DataLoader(train_dataset, batch_size=config['batch_size'], shuffle=True, drop_last=True, num_workers=20))
+
+    def _next(iter):
+        try:
+            item = next(iter)
+            return True, item
+        except StopIteration:
+            return False, None
+
+    encoder_epoch = 0
+    progress_bar = tqdm(range(1, config['encoder_iters']+1))
+    for encoder_iter in progress_bar:
+        for _ in range(config['n_critic']):
+            items_left, batch = _next(discriminator_dataloader_iter)
+
+            if not items_left:
+                discriminator_dataloader_iter = iter(DataLoader(train_dataset, batch_size=config['batch_size'], shuffle=True, drop_last=True, num_workers=20))
+                _, batch = _next(discriminator_dataloader_iter)
+
+            x, l = batch
             x = x.cuda()
+            z = z_dist.sample_n(config['batch_size']).cuda()
 
-            if iter % (config['n_critic'] + 1) != 0:
-                z = z_dist.sample_n(config['batch_size']).cuda()
+            optim_f.zero_grad()
+            loss = -(torch.mean(f(z)) - torch.mean(f(e(x))))
+            loss.backward()
+            optim_f.step()
 
-                optim_f.zero_grad()
-                loss = -(torch.mean(f(z)) - torch.mean(f(e(x))))
-                loss.backward()
-                optim_f.step()
+            for p in f.parameters():
+                p.data = p.data.clamp(-config['clip'], config['clip'])
 
-                for p in f.parameters():
-                    p.data = p.data.clamp(-config['clip'], config['clip'])
+        items_left, batch = _next(encoder_dataloader_iter)
 
-            if iter % (config['n_critic'] + 1) == 0:
-                optim_e.zero_grad()
-                e_x = e(x)
-                loss = -torch.mean(f(e_x))
-                loss.backward()
-                optim_e.step()
+        if not items_left:
+            encoder_dataloader_iter = iter(DataLoader(train_dataset, batch_size=config['batch_size'], shuffle=True, drop_last=True, num_workers=20))
+            _, batch = _next(encoder_dataloader_iter)
+            encoder_epoch += 1
+            progress_bar.set_description(f'encoder_epoch: {encoder_epoch}')
 
-                # a = torch.round(torch.cov(e_x.T, correction=0), decimals=4)
-                # b = (torch.sum(torch.abs(a)) - torch.sum(torch.abs(torch.diag(a)))).item()
-                # train_progress_bar.set_description(f'encoding_mean: {pretty_tensor(torch.round(torch.mean(e_x, dim=0), decimals=4))}, encoding_variance: {pretty_tensor(torch.round(torch.var(e_x, dim=0, unbiased=False), decimals=4))}, encoding co-variance: {pretty_tensor(a)}, {b}')
+        (x, l) = batch
+        x = x.cuda()
+        optim_e.zero_grad()
+        e_x = e(x)
+        loss = -torch.mean(f(e_x))
+        loss.backward()
+        optim_e.step()
 
-                # if iter % ((config['n_critic'] + 1)*10*10) == 0:
-                #     roc_auc = evaluate(trn_dataloader, val_dataloader, e, config)
-                #     print(f'roc_auc: {roc_auc}')
+        torch.cuda.empty_cache()
 
-            torch.cuda.empty_cache()
-            iter += 1
-
-        if (epoch + 1) % 10 == 0:
-            cov, var, roc_auc = evaluate(trn_dataloader, val_dataloader, e, config)
+        if (encoder_iter) % 100 == 0:
+            cov, var, roc_auc = evaluate(train_dataset, validation_dataset, e, config)
             # var = get_variance(trn_dataloader, e)
             if var < best_var:
                 best_var = var
                 best_var_roc = roc_auc
-                best_epoch = epoch
+                best_epoch = encoder_epoch
 
             if var > 1:
-                col_epoch = epoch
+                col_epoch = encoder_epoch
             if var > max_var:
                 max_var = var
 
@@ -143,22 +154,22 @@ def train(config):
             min_eig = torch.min(torch.real(L)).item()
             if max_eig_val < max_eig:
                 max_eig_val = max_eig
-                max_eig_val_epoch = epoch
+                max_eig_val_epoch = encoder_epoch
 
-            if min_eig_val > min_eig and epoch > 30:
+            if min_eig_val > min_eig and encoder_epoch > 30:
                 min_eig_val = min_eig
-                min_eig_val_epoch = epoch
+                min_eig_val_epoch = encoder_epoch
 
             dit = torch.prod(torch.real(L)).item()
 
             if dit < min_dit:
                 min_dit = dit
-                min_dit_epoch = epoch
+                min_dit_epoch = encoder_epoch
                 min_dit_roc = roc_auc
 
             if dit > max_dit:
                 max_dit = dit
-                max_dit_epoch = epoch
+                max_dit_epoch = encoder_epoch
 
             print(f'eig value: {L}\n, eig vector: {V}')
             print(f'eig_min: {min_eig_val}, epoch: {min_eig_val_epoch}')
@@ -176,13 +187,9 @@ def train(config):
             #     file.write(f'class: {config["class"]}, dataset: {config["dataset"]}, starting_roc_auc: {starting_roc} roc_auc: {roc_auc}\n')
             # torch.save(e.state_dict(), f'model_{config["dataset"]}_{config["class"]}_{epoch}')
 
-    roc_auc = evaluate(trn_dataloader, val_dataloader, e, config)
-    with open('output_results.log', 'a') as file:
-        file.write(
-            f'class: {config["class"]}, dataset: {config["dataset"]}, starting_roc_auc: {starting_roc} roc_auc: {roc_auc}\n')
-    torch.save(e.state_dict(), f'model_{config["dataset"]}_{config["class"]}')
-
-def evaluate(train_dataloader, validation_dataloader, e, config):
+def evaluate(train_dataset, validation_dataset, e, config):
+    train_dataloader = DataLoader(train_dataset, batch_size=config['batch_size'], shuffle=True, drop_last=True, num_workers=20)
+    validation_dataloader = DataLoader(validation_dataset, batch_size=config['batch_size'], shuffle=True, drop_last=True, num_workers=20)
     with torch.no_grad():
         e.eval()
         targets = []
@@ -251,10 +258,11 @@ class NoDaemonProcessPool(multiprocessing.pool.Pool):
         return proc
 
 if __name__ == '__main__':
-    _class = (int)(sys.argv[1])
-    _dim = (int)(sys.argv[2])
+    torch.multiprocessing.set_sharing_strategy('file_system')
 
-    config = {'height': 64, 'width': 64, 'batch_size': 64, 'n_critic': 6, 'clip': 1e-2, 'learning_rate': 5e-5, 'epochs': (int)(100000), 'z_dim': _dim, 'dataset': 'cifar', 'var_scale': 1}
+    _class = (int)(sys.argv[1])
+
+    config = {'height': 64, 'width': 64, 'batch_size': 64, 'n_critic': 6, 'clip': 1e-2, 'learning_rate': 5e-5, 'encoder_iters': (int)(100000), 'z_dim': 20, 'dataset': 'cifar', 'var_scale': 1}
     # config = {'height': 64, 'width': 64, 'batch_size': 64, 'n_critic': 6, 'clip': 1e-2, 'learning_rate': 5e-5, 'epochs': (int)(1000), 'z_dim': 32, 'dataset': 'mnist', 'var_scale': 1}
 
     config['class'] = _class
