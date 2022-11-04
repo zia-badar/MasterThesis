@@ -1,4 +1,6 @@
 import multiprocessing
+import pickle
+from time import time
 
 import numpy as np
 import torch
@@ -6,7 +8,6 @@ from sklearn.metrics import roc_auc_score
 from torch import norm, kl_div
 from torch.distributions import MultivariateNormal
 from torch.linalg import eig
-from torch.nn import KLDivLoss
 from torch.optim import RMSprop
 from torch.utils.data import DataLoader, random_split, ConcatDataset, Subset
 from torchvision.datasets import MNIST, CIFAR10
@@ -14,11 +15,14 @@ from torchvision.transforms import ToTensor, transforms, Resize, Normalize
 from tqdm import tqdm
 
 import sys
+
 sys.path.append('/home/zia/Desktop/MasterThesis/')
+
+from thesis.training_result import TrainingResult
+
 
 from thesis.dataset import OneClassDataset
 from thesis.models import Encoder, Discriminator
-from thesis.normality import get_variance
 
 
 def train(config):
@@ -41,8 +45,6 @@ def train(config):
     validation_dataset = ConcatDataset([validation_inlier_dataset, outlier_dataset])
 
     train_dataset = train_inlier_dataset
-    # train_dataloader = DataLoader(train_dataset, batch_size=config['batch_size'], shuffle=True, drop_last=True, num_workers=20)
-    # validation_dataloader = DataLoader(validation_dataset, batch_size=config['batch_size'], shuffle=True, drop_last=True, num_workers=20)
 
     def weights_init(m):
         classname = m.__class__.__name__
@@ -64,26 +66,6 @@ def train(config):
     scaling = config['var_scale']
     z_dist = MultivariateNormal(torch.zeros(config['z_dim']).cuda(), scaling*torch.eye(config['z_dim']).cuda())
 
-    starting_roc = evaluate(train_dataset, validation_dataset, e, config)
-    print(f'roc_auc: class: {config["class"]}, {starting_roc}')
-    best_var = 1000
-    best_var_roc = None
-    best_roc = [0, 0, 0]
-
-    col_epoch = -1
-    max_var = 0
-    max_eig_val = -1
-    max_eig_val_epoch = -1
-    min_eig_val = 1000
-    min_eig_val_epoch = -1
-
-    max_dit = -1
-    min_dit = 1000
-    min_dit_roc = None
-    min_dit_epoch = -1
-    max_dit_epoch = -1
-
-
     discriminator_dataloader_iter = iter(DataLoader(train_dataset, batch_size=config['batch_size'], shuffle=True, drop_last=True, num_workers=20))
     encoder_dataloader_iter = iter(DataLoader(train_dataset, batch_size=config['batch_size'], shuffle=True, drop_last=True, num_workers=20))
 
@@ -94,6 +76,8 @@ def train(config):
         except StopIteration:
             return False, None
 
+    starting_roc = evaluate(train_dataset, validation_dataset, e, config)
+    training_result = TrainingResult(config, starting_roc)
     encoder_epoch = 0
     progress_bar = tqdm(range(1, config['encoder_iters']+1))
     for encoder_iter in progress_bar:
@@ -136,60 +120,18 @@ def train(config):
 
         if (encoder_iter) % 100 == 0:
             cov, var, roc_auc = evaluate(train_dataset, validation_dataset, e, config)
-            # var = get_variance(trn_dataloader, e)
-            if var < best_var:
-                best_var = var
-                best_var_roc = roc_auc
-                best_epoch = encoder_epoch
+            eig_val, eig_vec = eig(cov)
+            training_result.update(cov, var, roc_auc, eig_val, eig_vec, e)
 
-            if var > 1:
-                col_epoch = encoder_epoch
-            if var > max_var:
-                max_var = var
+            if encoder_iter % (4 * 100) == 0:
+                print(training_result)
 
-            best_roc = [max(best_roc[0], roc_auc[0]), max(best_roc[1], roc_auc[1]), max(best_roc[2], roc_auc[2])]
-
-            L, V = eig(cov)
-            max_eig = torch.max(torch.real(L)).item()
-            min_eig = torch.min(torch.real(L)).item()
-            if max_eig_val < max_eig:
-                max_eig_val = max_eig
-                max_eig_val_epoch = encoder_epoch
-
-            if min_eig_val > min_eig and encoder_epoch > 30:
-                min_eig_val = min_eig
-                min_eig_val_epoch = encoder_epoch
-
-            dit = torch.prod(torch.real(L)).item()
-
-            if dit < min_dit:
-                min_dit = dit
-                min_dit_epoch = encoder_epoch
-                min_dit_roc = roc_auc
-
-            if dit > max_dit:
-                max_dit = dit
-                max_dit_epoch = encoder_epoch
-
-            print(f'eig value: {L}\n, eig vector: {V}')
-            print(f'eig_min: {min_eig_val}, epoch: {min_eig_val_epoch}')
-            print(f'eig_max: {max_eig_val}, epoch: {max_eig_val_epoch}')
-            print(f'dit_min: {min_dit}, roc: {min_dit_roc}, epoch: {min_dit_epoch}')
-            print(f'dit_max: {max_dit}, epoch: {max_dit_epoch}')
-            print(f'var: {var}, dit: {dit}, roc: {roc_auc}')
-            print(f'min_var: {best_var}, min_var_roc: {best_var_roc}, best_epoch: {best_epoch}')
-            print(f'max_var: {max_var}')
-            print(f'best_roc: {best_roc}')
-            print(f'col_epoch: {col_epoch}')
-
-            # print(f'roc: {roc_auc}, var: {var}')
-            # with open('output_results.log', 'a') as file:
-            #     file.write(f'class: {config["class"]}, dataset: {config["dataset"]}, starting_roc_auc: {starting_roc} roc_auc: {roc_auc}\n')
-            # torch.save(e.state_dict(), f'model_{config["dataset"]}_{config["class"]}_{epoch}')
+    with open(f'{config["dataset"]}_{config["class"]}_{time()}', 'wb') as file:
+        pickle.dump(training_result, file, protocol=pickle.HIGHEST_PROTOCOL)
 
 def evaluate(train_dataset, validation_dataset, e, config):
-    train_dataloader = DataLoader(train_dataset, batch_size=config['batch_size'], shuffle=True, drop_last=True, num_workers=20)
-    validation_dataloader = DataLoader(validation_dataset, batch_size=config['batch_size'], shuffle=True, drop_last=True, num_workers=20)
+    train_dataloader = DataLoader(train_dataset, batch_size=config['batch_size'], shuffle=True, drop_last=True)
+    validation_dataloader = DataLoader(validation_dataset, batch_size=config['batch_size'], shuffle=True, drop_last=True)
     with torch.no_grad():
         e.eval()
         targets = []
@@ -223,6 +165,7 @@ def evaluate(train_dataset, validation_dataset, e, config):
         roc_auc.append(roc_auc_score(targets, scores[0]))
         roc_auc.append(roc_auc_score(targets, scores[1]))
         roc_auc.append(roc_auc_score(np.abs(targets - 1), scores[2]))
+        roc_auc = torch.tensor(roc_auc)
 
         var_samples = []
         for i in range(100):
@@ -234,7 +177,7 @@ def evaluate(train_dataset, validation_dataset, e, config):
 
         var = torch.tensor(var_samples).mean().item()
 
-        print(f'iter: {iter}, roc: {roc_auc}, mean: {mean}, cov: {co_var}')
+        # print(f'iter: {iter}, roc: {roc_auc}, mean: {mean}, cov: {co_var}')
 
         e.train()
 
@@ -262,7 +205,7 @@ if __name__ == '__main__':
 
     _class = (int)(sys.argv[1])
 
-    config = {'height': 64, 'width': 64, 'batch_size': 64, 'n_critic': 6, 'clip': 1e-2, 'learning_rate': 5e-5, 'encoder_iters': (int)(100000), 'z_dim': 20, 'dataset': 'cifar', 'var_scale': 1}
+    config = {'height': 64, 'width': 64, 'batch_size': 64, 'n_critic': 6, 'clip': 1e-2, 'learning_rate': 5e-5, 'encoder_iters': (int)(20000), 'z_dim': 20, 'dataset': 'cifar', 'var_scale': 1}
     # config = {'height': 64, 'width': 64, 'batch_size': 64, 'n_critic': 6, 'clip': 1e-2, 'learning_rate': 5e-5, 'epochs': (int)(1000), 'z_dim': 32, 'dataset': 'mnist', 'var_scale': 1}
 
     config['class'] = _class
