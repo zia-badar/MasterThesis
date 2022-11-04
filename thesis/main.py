@@ -203,20 +203,15 @@ class NoDaemonProcessPool(multiprocessing.pool.Pool):
 if __name__ == '__main__':
     torch.multiprocessing.set_sharing_strategy('file_system')
 
-    _class = (int)(sys.argv[1])
-
     config = {'height': 64, 'width': 64, 'batch_size': 64, 'n_critic': 6, 'clip': 1e-2, 'learning_rate': 5e-5, 'encoder_iters': (int)(20000), 'z_dim': 20, 'dataset': 'cifar', 'var_scale': 1}
     # config = {'height': 64, 'width': 64, 'batch_size': 64, 'n_critic': 6, 'clip': 1e-2, 'learning_rate': 5e-5, 'epochs': (int)(1000), 'z_dim': 32, 'dataset': 'mnist', 'var_scale': 1}
 
-    config['class'] = _class
-    train(config)
+    with NoDaemonProcessPool(processes=10) as pool:
+        configs = []
+        for i in range(0, 10):
+            _config = config.copy()
+            _config['class'] = i
+            configs.append(_config)
 
-    # with NoDaemonProcessPool(processes=10) as pool:
-    #     configs = []
-    #     for i in range(5, 10):
-    #         _config = config.copy()
-    #         _config['class'] = i
-    #         configs.append(_config)
-    #
-    #     for _ in pool.imap_unordered(train, configs):
-    #         pass
+        for _ in pool.imap_unordered(train, configs):
+            pass
