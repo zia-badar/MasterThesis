@@ -8,12 +8,18 @@ class TrainingResult:
         self.dataset = config['dataset']
         self.class_index = config['class']
         self.starting_roc = starting_roc
+
         self.min_dit = maxsize
         self.min_dit_model = None
         self.min_dit_roc = None
+
         self.min_var = maxsize
         self.min_var_model = None
         self.min_var_roc = None
+
+        self.latest_model = None
+        self.latest_roc = None
+
         self.best_roc = torch.tensor([-1, -1, -1])
 
         #logs
@@ -37,6 +43,9 @@ class TrainingResult:
             self.min_var = var
             self.min_var_model = TrainingResult.model_state_dict(e)
             self.min_var_roc = roc
+
+        self.latest_model = TrainingResult.model_state_dict(e)
+        self.latest_roc = roc
 
         self.best_roc = torch.max(torch.stack((self.best_roc, roc)), dim=0)[0]
 

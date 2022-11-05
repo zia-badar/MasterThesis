@@ -78,9 +78,7 @@ def train(config):
 
     starting_roc = evaluate(train_dataset, validation_dataset, e, config)
     training_result = TrainingResult(config, starting_roc)
-    encoder_epoch = 0
-    progress_bar = tqdm(range(1, config['encoder_iters']+1))
-    for encoder_iter in progress_bar:
+    for encoder_iter in range(1, config['encoder_iters']+1):
         for _ in range(config['n_critic']):
             items_left, batch = _next(discriminator_dataloader_iter)
 
@@ -90,7 +88,7 @@ def train(config):
 
             x, l = batch
             x = x.cuda()
-            z = z_dist.sample_n(config['batch_size']).cuda()
+            z = z_dist.sample((config['batch_size'],)).cuda()
 
             optim_f.zero_grad()
             loss = -(torch.mean(f(z)) - torch.mean(f(e(x))))
@@ -105,8 +103,6 @@ def train(config):
         if not items_left:
             encoder_dataloader_iter = iter(DataLoader(train_dataset, batch_size=config['batch_size'], shuffle=True, drop_last=True, num_workers=20))
             _, batch = _next(encoder_dataloader_iter)
-            encoder_epoch += 1
-            progress_bar.set_description(f'encoder_epoch: {encoder_epoch}')
 
         (x, l) = batch
         x = x.cuda()
@@ -124,9 +120,9 @@ def train(config):
             training_result.update(cov, var, roc_auc, eig_val, eig_vec, e)
 
             if encoder_iter % (4 * 100) == 0:
-                print(training_result)
+                print(f'{encoder_iter}\n{training_result}\n{roc_auc}\n')
 
-    with open(f'{config["dataset"]}_{config["class"]}_{time()}', 'wb') as file:
+    with open(f'{config["dataset"]}_{config["class"]}_{config["timestamp"]}', 'wb') as file:
         pickle.dump(training_result, file, protocol=pickle.HIGHEST_PROTOCOL)
 
 def evaluate(train_dataset, validation_dataset, e, config):
@@ -203,7 +199,7 @@ class NoDaemonProcessPool(multiprocessing.pool.Pool):
 if __name__ == '__main__':
     torch.multiprocessing.set_sharing_strategy('file_system')
 
-    config = {'height': 64, 'width': 64, 'batch_size': 64, 'n_critic': 6, 'clip': 1e-2, 'learning_rate': 5e-5, 'encoder_iters': (int)(20000), 'z_dim': 20, 'dataset': 'cifar', 'var_scale': 1}
+    config = {'height': 64, 'width': 64, 'batch_size': 64, 'n_critic': 5, 'clip': 1e-2, 'learning_rate': 5e-5, 'encoder_iters': (int)(20000), 'z_dim': 20, 'dataset': 'cifar', 'var_scale': 1, 'timestamp': (int)(time())}
     # config = {'height': 64, 'width': 64, 'batch_size': 64, 'n_critic': 6, 'clip': 1e-2, 'learning_rate': 5e-5, 'epochs': (int)(1000), 'z_dim': 32, 'dataset': 'mnist', 'var_scale': 1}
 
     with NoDaemonProcessPool(processes=10) as pool:
