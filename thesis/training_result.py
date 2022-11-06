@@ -55,4 +55,4 @@ class TrainingResult:
 
 
     def __str__(self):
-        return f'class: {self.class_index}, min_dit_roc: {self.min_dit_roc}, min_var_roc: {self.min_var_roc}, best_roc: {self.best_roc}'
+        return f'class: {self.class_index}, min_dit_roc: {self.min_dit_roc}, min_var_roc: {self.min_var_roc}, best_roc: {self.best_roc}, starting_roc: {self.starting_roc}'
