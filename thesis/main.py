@@ -115,8 +115,12 @@ def train(config):
         torch.cuda.empty_cache()
 
         if (encoder_iter) % 100 == 0:
-            cov, var, roc_auc = evaluate(train_dataset, validation_dataset, e, config)
-            eig_val, eig_vec = eig(cov)
+            try:
+                cov, var, roc_auc = evaluate(train_dataset, validation_dataset, e, config)
+                eig_val, eig_vec = eig(cov)
+            except ValueError:
+                print(f'exception in class {config["class"]}')
+                return
             training_result.update(cov, var, roc_auc, eig_val, eig_vec, e)
 
             if encoder_iter % (4 * 100) == 0:
@@ -126,8 +130,8 @@ def train(config):
         pickle.dump(training_result, file, protocol=pickle.HIGHEST_PROTOCOL)
 
 def evaluate(train_dataset, validation_dataset, e, config):
-    train_dataloader = DataLoader(train_dataset, batch_size=config['batch_size'], shuffle=True, drop_last=True)
-    validation_dataloader = DataLoader(validation_dataset, batch_size=config['batch_size'], shuffle=True, drop_last=True)
+    train_dataloader = DataLoader(train_dataset, batch_size=config['batch_size'], shuffle=True, drop_last=True, num_workers=20)
+    validation_dataloader = DataLoader(validation_dataset, batch_size=config['batch_size'], shuffle=True, drop_last=True, num_workers=20)
     with torch.no_grad():
         e.eval()
         targets = []
@@ -202,7 +206,7 @@ if __name__ == '__main__':
     config = {'height': 64, 'width': 64, 'batch_size': 64, 'n_critic': 5, 'clip': 1e-2, 'learning_rate': 5e-5, 'encoder_iters': (int)(10000), 'z_dim': 20, 'dataset': 'cifar', 'var_scale': 1, 'timestamp': (int)(time())}
     # config = {'height': 64, 'width': 64, 'batch_size': 64, 'n_critic': 6, 'clip': 1e-2, 'learning_rate': 5e-5, 'epochs': (int)(1000), 'z_dim': 32, 'dataset': 'mnist', 'var_scale': 1}
 
-    for j in range(5, 10, 5):
+    for j in range(0, 10, 5):
         with NoDaemonProcessPool(processes=10) as pool:
             configs = []
             for i in range(j, j+5):
