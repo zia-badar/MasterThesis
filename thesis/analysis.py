@@ -16,9 +16,11 @@ from thesis.models import Encoder
 
 
 if __name__ == "__main__":
-    total_classes = 10
+    folder_name = 'model_cifar_20/run_3_condition_no/'
+
+    total_classes = 9
     plt.rcParams['font.size'] = '12'
-    fig, ax = plt.subplots(total_classes, 4, figsize=(20, total_classes*5))
+    fig, ax = plt.subplots(total_classes, 2, figsize=(10, total_classes*5))
     spaces = ' ' * 30
     fig.suptitle('before training nomaly'+ spaces + 'before training anomaly'+spaces+'after training nomaly'+spaces+'after training anomlay')
     analysis_csv_name = 'analysis.csv'
@@ -64,11 +66,10 @@ if __name__ == "__main__":
         _, _, before_training_roc = evaluate(train_dataset, validation_dataset, e, config)
         before_training_roc = list(np.round(before_training_roc.cpu().numpy(), 2))
 
-        folder_name = 'model_cifar_20/run_1/'
         with open(folder_name + f'cifar_{config["class"]}', 'rb') as file:
             training_result = pickle.load(file)
 
-        e.load_state_dict(training_result.min_dit_model)
+        e.load_state_dict(training_result.min_condition_no_model)
 
 
         _, _, after_training_roc = evaluate(train_dataset, validation_dataset, e, config)
@@ -95,8 +96,8 @@ if __name__ == "__main__":
                     projections = torch.cat(projections)
 
                     if j == 0:
-                        ax[_class, i*2 + j].title.set_text(str(before_training_roc) if i == 0 else str(after_training_roc))
-                    ax[_class, i*2 + j].hist(projections.cpu().numpy(), bins=100)
+                        ax[_class, i].title.set_text(str(before_training_roc) if i == 0 else str(after_training_roc))
+                    ax[_class, i].hist(projections.cpu().numpy(), bins=100, density=True, histtype='step', color=('g' if j == 0 else 'r'))
 
         with open(analysis_csv_name, 'a', encoding='UTF8', newline='') as file:
             writer = csv.writer(file)
