@@ -18,8 +18,7 @@ import sys
 
 sys.path.append('/home/zia/Desktop/MasterThesis/')
 
-from thesis.training_result import TrainingResult
-
+from thesis.training_result import TrainingResult, clean_tensor_str
 
 from thesis.dataset import OneClassDataset
 from thesis.models import Encoder, Discriminator
@@ -118,13 +117,14 @@ def train(config):
             try:
                 cov, var, roc_auc = evaluate(train_dataset, validation_dataset, e, config)
                 eig_val, eig_vec = eig(cov)
+                condition_no = torch.max(torch.real(eig_val)).item() / torch.min(torch.real(eig_val)).item()
             except ValueError:
                 print(f'exception in class {config["class"]}')
                 return
             training_result.update(cov, var, roc_auc, eig_val, eig_vec, e)
 
             if encoder_iter % (4 * 100) == 0:
-                print(f'{encoder_iter}\n{training_result}\n{roc_auc}\n')
+                print(f'{encoder_iter}\n{training_result}\ncondition_no:{np.round(condition_no, 2)}\nroc:{clean_tensor_str(roc_auc)}\n')
 
     with open(f'{config["dataset"]}_{config["class"]}_{config["timestamp"]}', 'wb') as file:
         pickle.dump(training_result, file, protocol=pickle.HIGHEST_PROTOCOL)
