@@ -16,11 +16,11 @@ from thesis.models import Encoder
 
 
 if __name__ == "__main__":
-    folder_name = 'model_cifar_20/run_3_condition_no/'
+    folder_name = 'model_cifar_20/run_4/'
 
-    total_classes = 9
+    classes = list(range(10))
     plt.rcParams['font.size'] = '12'
-    fig, ax = plt.subplots(total_classes, 2, figsize=(10, total_classes*5))
+    fig, ax = plt.subplots(len(classes), 2, figsize=(10, len(classes)*5))
     spaces = ' ' * 30
     fig.suptitle('before training nomaly'+ spaces + 'before training anomaly'+spaces+'after training nomaly'+spaces+'after training anomlay')
     analysis_csv_name = 'analysis.csv'
@@ -29,7 +29,9 @@ if __name__ == "__main__":
         writer = csv.writer(file)
         writer.writerow(['class', 'p(z|u,c)', 'p(z|0,1)', '||z||', 'p(z|u,c)', 'p(z|0,1)', '||z||'])
 
-    for _class in range(total_classes):
+    before_training_sum_roc = torch.zeros((3))
+    after_training_sum_roc = torch.zeros((3))
+    for axis_index, _class in enumerate(classes):
         config = {'height': 64, 'width': 64, 'batch_size': 64, 'n_critic': 5, 'clip': 1e-2, 'learning_rate': 5e-5, 'encoder_iters': (int)(10000), 'z_dim': 20, 'dataset': 'cifar', 'var_scale': 1, 'timestamp': (int)(time())}
         config['class'] = _class
 
@@ -64,6 +66,7 @@ if __name__ == "__main__":
         e.apply(weights_init)
 
         _, _, before_training_roc = evaluate(train_dataset, validation_dataset, e, config)
+        before_training_sum_roc += before_training_roc
         before_training_roc = list(np.round(before_training_roc.cpu().numpy(), 2))
 
         with open(folder_name + f'cifar_{config["class"]}', 'rb') as file:
@@ -73,6 +76,7 @@ if __name__ == "__main__":
 
 
         _, _, after_training_roc = evaluate(train_dataset, validation_dataset, e, config)
+        after_training_sum_roc += after_training_roc
         after_training_roc = list(np.round(after_training_roc.cpu().numpy(), 2))
 
         with torch.no_grad():
@@ -84,6 +88,9 @@ if __name__ == "__main__":
             anominal_dataloader = DataLoader(outlier_dataset, batch_size=config['batch_size'], shuffle=True, drop_last=True, num_workers=20)
             projections = []
             for i, encoder in enumerate([without_training_encoder, e]):
+                ax[axis_index, i].title.set_text(str(before_training_roc) if i == 0 else str(after_training_roc))
+                if i == 0:
+                    ax[axis_index, i].set_ylabel(f'class: {_class}')
                 for j, dataloader in enumerate([nominal_dataloader, anominal_dataloader]):
                     projections = []
 
@@ -95,13 +102,18 @@ if __name__ == "__main__":
 
                     projections = torch.cat(projections)
 
-                    if j == 0:
-                        ax[_class, i].title.set_text(str(before_training_roc) if i == 0 else str(after_training_roc))
-                    ax[_class, i].hist(projections.cpu().numpy(), bins=100, density=True, histtype='step', color=('g' if j == 0 else 'r'))
+                    ax[axis_index, i].hist(projections.cpu().numpy(), bins=100, density=True, histtype='step', color=('g' if j == 0 else 'r'))
 
         with open(analysis_csv_name, 'a', encoding='UTF8', newline='') as file:
             writer = csv.writer(file)
             writer.writerow([_class] + before_training_roc + after_training_roc)
+            if axis_index == len(classes) - 1:
+                before_training_average_roc = before_training_sum_roc / len(classes)
+                after_training_average_roc = after_training_sum_roc / len(classes)
+                before_training_average_roc = list(np.round(before_training_average_roc.cpu().numpy(), 2))
+                after_training_average_roc = list(np.round(after_training_average_roc.cpu().numpy(), 2))
+                writer.writerow(['average'] + before_training_average_roc + after_training_average_roc)
+
 
     plt.show()
 
