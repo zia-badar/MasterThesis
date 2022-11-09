@@ -15,7 +15,7 @@ from thesis.main import evaluate
 from thesis.models import Encoder
 
 
-if __name__ == "__main__":
+def generate_plots_and_csv():
     folder_name = 'model_cifar_20/run_4/'
 
     classes = list(range(10))
@@ -52,9 +52,6 @@ if __name__ == "__main__":
         train_dataset = train_inlier_dataset
 
         without_training_encoder = Encoder(config).cuda()
-        e = Encoder(config)
-        e = e.cuda()
-
         def weights_init(m):
             classname = m.__class__.__name__
             if classname.find('Conv') != -1 or classname.find('Linear') != -1:
@@ -62,32 +59,32 @@ if __name__ == "__main__":
             elif classname.find('BatchNorm') != -1:
                 m.weight.data.normal_(1.0, 0.02)
                 m.bias.data.fill_(0)
+        without_training_encoder.apply(weights_init)
 
-        e.apply(weights_init)
-
-        _, _, before_training_roc = evaluate(train_dataset, validation_dataset, e, config)
+        _, _, before_training_roc = evaluate(train_dataset, validation_dataset, without_training_encoder, config)
         before_training_sum_roc += before_training_roc
         before_training_roc = list(np.round(before_training_roc.cpu().numpy(), 2))
 
         with open(folder_name + f'cifar_{config["class"]}', 'rb') as file:
             training_result = pickle.load(file)
 
-        e.load_state_dict(training_result.min_condition_no_model)
+        trained_encoder = Encoder(config).cuda()
+        trained_encoder.load_state_dict(training_result.min_condition_no_model)
 
 
-        _, _, after_training_roc = evaluate(train_dataset, validation_dataset, e, config)
+        _, _, after_training_roc = evaluate(train_dataset, validation_dataset, trained_encoder, config)
         after_training_sum_roc += after_training_roc
         after_training_roc = list(np.round(after_training_roc.cpu().numpy(), 2))
 
         with torch.no_grad():
-            e.eval()
+            without_training_encoder.eval()
+            trained_encoder.eval()
             random_vector = torch.rand(config['z_dim']).cuda()
             random_unit_vector = random_vector / torch.norm(random_vector)
 
             nominal_dataloader = DataLoader(validation_inlier_dataset, batch_size=config['batch_size'], shuffle=True, drop_last=True, num_workers=20)
             anominal_dataloader = DataLoader(outlier_dataset, batch_size=config['batch_size'], shuffle=True, drop_last=True, num_workers=20)
-            projections = []
-            for i, encoder in enumerate([without_training_encoder, e]):
+            for i, encoder in enumerate([without_training_encoder, trained_encoder]):
                 ax[axis_index, i].title.set_text(str(before_training_roc) if i == 0 else str(after_training_roc))
                 if i == 0:
                     ax[axis_index, i].set_ylabel(f'class: {_class}')
@@ -118,7 +115,6 @@ if __name__ == "__main__":
     plt.show()
 
 
-
-
-        # print(before_training_roc, after_training_roc, training_result.eig_max)
+if __name__ == '__main__':
+    # generate_plots_and_csv()
 
