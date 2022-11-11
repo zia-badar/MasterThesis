@@ -182,7 +182,7 @@ def evaluate(train_dataset, validation_dataset, e, config):
 
         e.train()
 
-    return co_var, var, roc_auc, mean
+    return co_var, var, roc_auc
 
 # https://stackoverflow.com/questions/6974695/python-process-pool-non-daemonic
 class NoDaemonProcess(multiprocessing.Process):

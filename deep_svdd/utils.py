@@ -2,15 +2,15 @@ import sys
 
 import torch
 from torch.utils.data import DataLoader
-from torchvision.datasets import MNIST
+from torchvision.datasets import MNIST, CIFAR10
 
-from Depp_One_SVDD.dataset import FilteredDataset
+from deep_svdd.dataset import FilteredDataset
 
 
 def min_max():
     min_max = []
     for i in range(10):
-        train_dataset = FilteredDataset(MNIST(root='', train=True, download=True), include_class_label=i)
+        train_dataset = FilteredDataset(CIFAR10(root='../', train=True, download=True), include_class_label=i)
         train_dataloader = DataLoader(train_dataset, batch_size=200, shuffle=True)
 
         overall_min = sys.maxsize
@@ -26,3 +26,6 @@ def min_max():
         min_max.append([overall_min.item(), overall_max.item()])
 
     return min_max
+
+if __name__ == '__main__':
+    print(min_max())

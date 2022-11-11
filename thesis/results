@@ -264,13 +264,37 @@ Process finished with exit code 0
 
 old auto encoder
 
-class: 1, encoder training, loss:  4.4770, 0.5334480555555555
 class: 0, encoder training, loss:  0.8612, 0.5679915
-class: 3, encoder training, loss:  2.4483, 0.5676448333333333
+class: 1, encoder training, loss:  4.4770, 0.5334480555555555
 class: 2, encoder training, loss:  0.6959, 0.43654533333333334
+class: 3, encoder training, loss:  2.4483, 0.5676448333333333
 class: 4, encoder training, loss:  2.4677, 0.47835022222222223
 class: 5, encoder training, loss:  3.1307, 0.6083627222222222
-class: 7, encoder training, loss:  3.1608, 0.5609956111111111
 class: 6, encoder training, loss:  2.6900, 0.45806616666666666
-class: 9, encoder training, loss:  4.8245, 0.622555
+class: 7, encoder training, loss:  3.1608, 0.5609956111111111
 class: 8, encoder training, loss:  1.0528, 0.7356412222222224
+class: 9, encoder training, loss:  4.8245, 0.622555
+
+new encoder(same as wgan)
+epoch: 200, class: 0, encoder training, loss:  8.86, 0.6362370740740741
+epoch: 200, class: 1, encoder training, loss:  12.17, 0.6352372518518519
+epoch: 200, class: 2, encoder training, loss:  6.86, 0.4941918666666667
+epoch: 200, class: 3, encoder training, loss:  23.27, 0.5782450592592592
+epoch: 249, class: 4, encoder training, loss:  9.89, 0.577572474074074
+epoch: 249, class: 5, encoder training, loss:  8.05, 0.5882589777777778
+epoch: 249, class: 6, encoder training, loss:  28.04, 0.7544043111111112
+epoch: 249, class: 7, encoder training, loss:  14.08, 0.6283969185185185
+epoch: 249, class: 8, encoder training, loss:  4.55, 0.7693644814814815
+epoch: 249, class: 9, encoder training, loss:  14.29, 0.7170983629629629
+
+new encoder(same as wgan, with tanh activation)
+epoch: 249, class: 0, encoder training, loss:  24.94, 0.6180552444444445
+epoch: 249, class: 1, encoder training, loss:  60.26, 0.615992162962963
+epoch: 249, class: 2, encoder training, loss:  29.56, 0.5050828
+epoch: 249, class: 3, encoder training, loss:  146.70, 0.5963666888888889
+epoch: 249, class: 4, encoder training, loss:  131.67, 0.6571284666666667
+epoch: 249, class: 5, encoder training, loss:  51.42, 0.5792701851851851
+epoch: 249, class: 6, encoder training, loss:  40.47, 0.5532767333333333
+epoch: 249, class: 7, encoder training, loss:  180.96, 0.6271034814814815
+epoch: 249, class: 8, encoder training, loss:  61.99, 0.7753286296296297
+epoch: 249, class: 9, encoder training, loss:  66.21, 0.7068975185185185

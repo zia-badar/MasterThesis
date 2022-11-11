@@ -2,19 +2,18 @@ import multiprocessing
 import os
 from time import time
 
-import numpy as np
 import torch
 from sklearn.metrics import roc_auc_score
 from torch.optim import Adam
 from torch.utils.data import Subset, ConcatDataset, DataLoader
-from torchvision.datasets import CIFAR10, MNIST
-from torchvision.transforms import transforms, ToTensor
+from torchvision.datasets import CIFAR10
+from torchvision.transforms import transforms, ToTensor, Resize, Normalize
 from tqdm import tqdm
 
-from deep_svdd.dataset import FilteredDataset
-from deep_svdd.model import Encoder, Decoder
 from thesis.dataset import OneClassDataset, GlobalContrastiveNormalizationTransform, MinMaxNormalizationTransform
+from thesis.models import Encoder, Decoder
 
+# min max value for each class after applying global contrastive normalization
 CIFAR10_MIN_MAX = [[-28.94080924987793, 13.802960395812988], [-6.681769371032715, 9.158066749572754],
                    [-34.92462158203125, 14.419297218322754], [-10.59916877746582, 11.093188285827637],
                    [-11.945022583007812, 10.628044128417969], [-9.691973686218262, 8.94832706451416],
@@ -28,7 +27,7 @@ def train(config):
     outlier.remove(config['class'])
 
     dataset = CIFAR10(root='../', train=True, download=True)
-    normlization_transforms = transforms.Compose([ToTensor(), GlobalContrastiveNormalizationTransform(), MinMaxNormalizationTransform(CIFAR10_MIN_MAX[config['class']])])
+    normlization_transforms = transforms.Compose([ToTensor(), Resize((config['height'], config['width'])), GlobalContrastiveNormalizationTransform(), MinMaxNormalizationTransform(CIFAR10_MIN_MAX[config['class']]), Normalize((0.5, 0.5, 0.5), (0.5, 0.5, 0.5))])
 
     inlier_dataset = OneClassDataset(dataset, zero_class_labels=inlier, transform=normlization_transforms)
     outlier_dataset = OneClassDataset(dataset, one_class_labels=outlier, transform=normlization_transforms)
@@ -40,20 +39,29 @@ def train(config):
     train_dataset = train_inlier_dataset
     train_dataloader = DataLoader(train_dataset, batch_size=config['batch_size'], shuffle=True, num_workers=20)
 
-    encoder = Encoder('cifar').cuda()
-    decoder = Decoder('cifar').cuda()
+    def weights_init(m):
+        classname = m.__class__.__name__
+        if classname.find('Conv') != -1 or classname.find('Linear') != -1:
+            m.weight.data.normal_(0.0, 0.02)
+        elif classname.find('BatchNorm') != -1:
+            m.weight.data.normal_(1.0, 0.02)
+            m.bias.data.fill_(0)
+
+    encoder = Encoder(config).cuda()
+    decoder = Decoder(config).cuda()
     encoder.train()
     decoder.train()
+    encoder.apply(weights_init)
+    decoder.apply(weights_init)
 
     optim = Adam(list(encoder.parameters()) + list(decoder.parameters()), lr=config['learning_rate'], weight_decay=1e-6)
-    for epoch in range(config['autoencoder_epochs']):
+    for epoch in tqdm(range(config['autoencoder_epochs'])):
         total_loss = 0
         for x, _ in train_dataloader:
             optim.zero_grad()
             x = x.cuda()
-            encoding = encoder(x.cuda())
-            encoding_with_channel = encoding.view(x.shape[0], (int)(encoder.encode_dim / (4*4)), 4, 4)       # encoding with channels
-            decoding = decoder(encoding_with_channel)
+            encoded = encoder(x.cuda())
+            decoding = decoder(encoded)
             diff = torch.sum(((x.cuda() - decoding) ** 2), dim=[1, 2, 3])                                          # sum diff across channel, height, width dimensions
             loss = torch.mean(diff)
             loss.backward()
@@ -61,7 +69,8 @@ def train(config):
             total_loss += loss.item()
 
     roc_auc = evaluate(validation_dataset, encoder, decoder, config)
-    print(f'class: {config["class"]}encoder training, loss: {total_loss/len(train_dataloader): .2f}, {roc_auc : .2f}')
+    print(f'epoch: {epoch}, class: {config["class"]}, encoder training, loss: {total_loss/len(train_dataloader): .2f}, {roc_auc}')
+    torch.save(encoder.state_dict(), result_directory + f'/encoder_class_{config["class"]}')
 
 def evaluate(validation_dataset, encoder, decoder, config):
 
@@ -76,8 +85,7 @@ def evaluate(validation_dataset, encoder, decoder, config):
         for x, l in validation_dataloader:
             x = x.cuda()
             encoded = encoder(x)
-            encoding_with_channel = encoded.view(x.shape[0], (int)(encoder.encode_dim / (4 * 4)), 4, 4)  # encoding with channels
-            decoded = decoder(encoding_with_channel)
+            decoded = decoder(encoded)
             score = torch.sum((x - decoded)**2, dim=(1, 2, 3))
             scores.append(score)
             targets.append(l)
@@ -112,7 +120,7 @@ class NoDaemonProcessPool(multiprocessing.pool.Pool):
 if __name__ == '__main__':
     result_directory = f'model_autoencoder/run_{(int)(time())}'
     os.mkdir(result_directory)
-    config = {'height': 32, 'width': 32, 'batch_size': 200, 'learning_rate': 5e-5, 'autoencoder_epochs': (int)(250), 'z_dim': 20, 'dataset': 'cifar', 'result_directory': result_directory}
+    config = {'height': 64, 'width': 64, 'batch_size': 200, 'learning_rate': 5e-5, 'autoencoder_epochs': (int)(250), 'z_dim': 20, 'dataset': 'cifar', 'result_directory': result_directory}
 
     for j in range(0, 10, 2):
         with NoDaemonProcessPool(processes=10) as pool:
