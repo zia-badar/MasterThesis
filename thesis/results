@@ -236,3 +236,41 @@ class 9: dim 30, 40 collapsed, check dim 50 for collapse
 dim 20 [0.4479068208010242, 0.5020676577650985, 0.5020666334041319] [0.5516660217062539, 0.5358592355365774, 0.5358592874299439]
 dim 20 [0.4713034680372185, 0.4270169586351611, 0.42701658031111145] [0.516798517758589, 0.4993889018773241, 0.4993889241460407]
 at 1000 [0.5362902025323963, 0.5112863920766243, 0.51128636983661]
+
+
+
+auto encoder
+
+class: 0encoder training, loss:  1.04,  0.60
+class: 1encoder training, loss:  5.62,  0.53
+Files already downloaded and verifiedFiles already downloaded and verified
+
+class: 3encoder training, loss:  2.85,  0.58
+class: 2encoder training, loss:  0.91,  0.48
+Files already downloaded and verifiedFiles already downloaded and verified
+
+class: 5encoder training, loss:  3.74,  0.58
+class: 4encoder training, loss:  2.83,  0.53
+Files already downloaded and verifiedFiles already downloaded and verified
+
+class: 7encoder training, loss:  4.04,  0.56
+class: 6encoder training, loss:  3.26,  0.47
+Files already downloaded and verifiedFiles already downloaded and verified
+
+class: 8encoder training, loss:  1.36,  0.75
+class: 9encoder training, loss:  6.11,  0.63
+
+Process finished with exit code 0
+
+old auto encoder
+
+class: 1, encoder training, loss:  4.4770, 0.5334480555555555
+class: 0, encoder training, loss:  0.8612, 0.5679915
+class: 3, encoder training, loss:  2.4483, 0.5676448333333333
+class: 2, encoder training, loss:  0.6959, 0.43654533333333334
+class: 4, encoder training, loss:  2.4677, 0.47835022222222223
+class: 5, encoder training, loss:  3.1307, 0.6083627222222222
+class: 7, encoder training, loss:  3.1608, 0.5609956111111111
+class: 6, encoder training, loss:  2.6900, 0.45806616666666666
+class: 9, encoder training, loss:  4.8245, 0.622555
+class: 8, encoder training, loss:  1.0528, 0.7356412222222224

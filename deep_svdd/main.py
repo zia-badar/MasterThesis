@@ -7,9 +7,9 @@ from torch.utils.data import DataLoader
 from torchvision.datasets import MNIST, CIFAR10
 from tqdm import tqdm
 
-from Depp_One_SVDD.dataset import FilteredDataset
-from Depp_One_SVDD.loss import Loss
-from Depp_One_SVDD.model import Encoder, Decoder
+from deep_svdd.dataset import FilteredDataset
+from deep_svdd.loss import Loss
+from deep_svdd.model import Encoder, Decoder
 
 def train_encoder(dataloader, model_type):
 

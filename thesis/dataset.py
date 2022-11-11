@@ -26,6 +26,24 @@ class OneClassDataset(Dataset):
     def __len__(self):
         return len(self.filtered_indexes)
 
+class GlobalContrastiveNormalizationTransform:
+    def __init__(self):
+        pass
+
+    def __call__(self, x):
+        # l1 global contrastive normalization https://cedar.buffalo.edu/~srihari/CSE676/12.2%20Computer%20Vision.pdf
+        x_ = torch.mean(x)
+        x = (x - x_) / torch.mean(torch.abs(x - x_))
+        return x
+
+class MinMaxNormalizationTransform:
+    def __init__(self, min_max):
+        self.min = min_max[0]
+        self.max = min_max[1]
+
+    def __call__(self, x):
+        x = (x - self.min) / (self.max - self.min)
+        return x
 
 class RandomBoxDataset(Dataset):
     def __init__(self, size=(32, 32)):

@@ -3,6 +3,8 @@ import torchvision.models
 from torch import nn, Tensor
 from torch.distributions.constraints import one_hot
 from torch.nn import ConvTranspose2d, BatchNorm2d, ReLU, Tanh, Sigmoid, Conv2d, LeakyReLU, BatchNorm1d, Flatten, Linear
+from torch.nn.functional import leaky_relu, interpolate
+
 from resnet_modified import ResNet, BasicBlock
 
 
@@ -56,8 +58,7 @@ class Encoder(nn.Module):
             BatchNorm2d(num_features=1024),
             LeakyReLU(0.2, inplace=True),
             Conv2d(in_channels=1024, out_channels=config['z_dim'], kernel_size=4, bias=False),
-            Tanh(),
-            Flatten()
+            # Tanh()
         )
 
 
@@ -68,6 +69,34 @@ class Encoder(nn.Module):
     def heat_map(self, x):
         return self.e.grad_cam(x)
         # return x
+
+class Decoder(nn.Module):
+
+    def __init__(self, config):
+        super(Decoder, self).__init__()
+        channels = 3 if config['dataset'] == 'cifar' else 1
+
+        self.d = nn.Sequential(
+            ConvTranspose2d(in_channels=config['z_dim'], out_channels=1024, kernel_size=4, bias=False),
+            BatchNorm2d(num_features=1024),
+            LeakyReLU(0.2, inplace=True),
+            ConvTranspose2d(in_channels=1024, out_channels=512, kernel_size=4, stride=2, padding=1, bias=False),
+            BatchNorm2d(num_features=512),
+            LeakyReLU(0.2, inplace=True),
+            Conv2d(in_channels=512, out_channels=256, kernel_size=4, stride=2, padding=1, bias=False),
+            BatchNorm2d(num_features=256),
+            LeakyReLU(0.2, inplace=True),
+            Conv2d(in_channels=256, out_channels=128, kernel_size=4, stride=2, padding=1, bias=False),
+            BatchNorm2d(num_features=128),
+            LeakyReLU(0.2, inplace=True),
+            Conv2d(in_channels=128, out_channels=channels, kernel_size=4, stride=2, padding=1, bias=False),
+            # Tanh()
+        )
+
+    def forward(self, x):
+        # x = torch.unsqueeze(torch.unsqueeze(x, -1), -1)
+        x = self.d(x)
+        return x
 
 
 class GradCamNet:
