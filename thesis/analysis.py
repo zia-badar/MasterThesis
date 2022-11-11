@@ -2,7 +2,6 @@ import csv
 import pickle
 from time import time
 
-import matplotlib
 import numpy as np
 import torch
 from matplotlib import pyplot as plt
@@ -16,11 +15,10 @@ from thesis.models import Encoder
 
 
 def generate_plots_and_csv():
-    folder_name = 'model_cifar_20/run_4/'
-
+    folder_name = 'model_cifar_20/run_7/'
     classes = list(range(10))
     plt.rcParams['font.size'] = '12'
-    fig, ax = plt.subplots(len(classes), 2, figsize=(10, len(classes)*5))
+    fig, ax = plt.subplots(len(classes), 3, figsize=(15, len(classes)*5))
     spaces = ' ' * 30
     fig.suptitle('before training nomaly'+ spaces + 'before training anomaly'+spaces+'after training nomaly'+spaces+'after training anomlay')
     analysis_csv_name = 'analysis.csv'
@@ -100,6 +98,7 @@ def generate_plots_and_csv():
                     projections = torch.cat(projections)
 
                     ax[axis_index, i].hist(projections.cpu().numpy(), bins=100, density=True, histtype='step', color=('g' if j == 0 else 'r'))
+            ax[axis_index, 2].plot(training_result.condition_no_list)
 
         with open(analysis_csv_name, 'a', encoding='UTF8', newline='') as file:
             writer = csv.writer(file)
@@ -115,6 +114,51 @@ def generate_plots_and_csv():
     plt.show()
 
 
-if __name__ == '__main__':
-    # generate_plots_and_csv()
+def generate_filter_plots():
+    folder_name = 'model_cifar_20/run_4/'
 
+    classes = list(range(10))
+    classes.remove(3)
+    plt.rcParams['font.size'] = '12'
+
+    for axis_index, _class in enumerate(classes):
+        fig, ax = plt.subplots(5, 5, figsize=(5, 5))
+        config = {'height': 64, 'width': 64, 'batch_size': 64, 'n_critic': 5, 'clip': 1e-2, 'learning_rate': 5e-5,
+                  'encoder_iters': (int)(10000), 'z_dim': 20, 'dataset': 'cifar', 'var_scale': 1,
+                  'timestamp': (int)(time())}
+        config['class'] = _class
+
+        without_training_encoder = Encoder(config).cuda()
+        def weights_init(m):
+            classname = m.__class__.__name__
+            if classname.find('Conv') != -1 or classname.find('Linear') != -1:
+                m.weight.data.normal_(0.0, 0.02)
+            elif classname.find('BatchNorm') != -1:
+                m.weight.data.normal_(1.0, 0.02)
+                m.bias.data.fill_(0)
+        without_training_encoder.apply(weights_init)
+
+        with open(folder_name + f'cifar_{config["class"]}', 'rb') as file:
+            training_result = pickle.load(file)
+
+        trained_encoder = Encoder(config).cuda()
+        trained_encoder.load_state_dict(training_result.min_condition_no_model)
+
+        layer_1_weights = list(trained_encoder.parameters())[6]
+        layer_1_kernels = layer_1_weights.reshape(512*256, 4, 4)
+        random_indexes = (torch.rand((25))*layer_1_kernels.shape[0]).to(torch.long)
+        random_kernels = layer_1_kernels[random_indexes, :, :].reshape(5, 5, 4, 4)
+
+        fig.suptitle(f'class: {_class}')
+
+        for i in range(5):
+            for j in range(5):
+                ax[i, j].imshow(random_kernels[i, j].detach().cpu().numpy(), cmap='gray')
+                ax[i, j].axis('off')
+
+        plt.show()
+
+if __name__ == '__main__':
+    generate_plots_and_csv()
+
+    # generate_filter_plots()

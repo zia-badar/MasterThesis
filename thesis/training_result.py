@@ -34,6 +34,7 @@ class TrainingResult:
         self.latest_roc = None
 
         self.best_roc = torch.tensor([-1, -1, -1])
+        self.condition_no_list = []
 
         #logs
         self.eig_max = -1
@@ -47,6 +48,8 @@ class TrainingResult:
     def update(self, cov, var, roc, eig_val, eig_vec, e):
         dit = torch.prod(torch.real(eig_val)).item()
         condition_no = torch.max(torch.real(eig_val)).item() / torch.min(torch.real(eig_val)).item()
+
+        self.condition_no_list.append(condition_no)
 
         if dit < self.min_dit:
             self.min_dit = dit

@@ -1,4 +1,5 @@
 import multiprocessing
+import os
 import pickle
 from time import time
 
@@ -126,7 +127,7 @@ def train(config):
             if encoder_iter % (4 * 100) == 0:
                 print(f'{encoder_iter}\n{training_result}\ncondition_no:{np.round(condition_no, 2)}\nroc:{clean_tensor_str(roc_auc)}\n')
 
-    with open(f'{config["dataset"]}_{config["class"]}_{config["timestamp"]}', 'wb') as file:
+    with open(f'{config["result_directory"]}/{config["dataset"]}_{config["class"]}', 'wb') as file:
         pickle.dump(training_result, file, protocol=pickle.HIGHEST_PROTOCOL)
 
 def evaluate(train_dataset, validation_dataset, e, config):
@@ -181,7 +182,7 @@ def evaluate(train_dataset, validation_dataset, e, config):
 
         e.train()
 
-    return co_var, var, roc_auc
+    return co_var, var, roc_auc, mean
 
 # https://stackoverflow.com/questions/6974695/python-process-pool-non-daemonic
 class NoDaemonProcess(multiprocessing.Process):
@@ -203,7 +204,10 @@ class NoDaemonProcessPool(multiprocessing.pool.Pool):
 if __name__ == '__main__':
     torch.multiprocessing.set_sharing_strategy('file_system')
 
-    config = {'height': 64, 'width': 64, 'batch_size': 64, 'n_critic': 5, 'clip': 1e-2, 'learning_rate': 5e-5, 'encoder_iters': (int)(10000), 'z_dim': 20, 'dataset': 'cifar', 'var_scale': 1, 'timestamp': (int)(time())}
+    result_directory = f'model_cifar_20/run_{(int)(time())}'
+    os.mkdir(result_directory)
+
+    config = {'height': 64, 'width': 64, 'batch_size': 64, 'n_critic': 5, 'clip': 1e-2, 'learning_rate': 5e-5, 'encoder_iters': (int)(10000), 'z_dim': 20, 'dataset': 'cifar', 'var_scale': 1, 'result_directory': result_directory}
     # config = {'height': 64, 'width': 64, 'batch_size': 64, 'n_critic': 6, 'clip': 1e-2, 'learning_rate': 5e-5, 'epochs': (int)(1000), 'z_dim': 32, 'dataset': 'mnist', 'var_scale': 1}
 
     for j in range(0, 10, 5):
