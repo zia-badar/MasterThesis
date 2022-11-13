@@ -21,24 +21,22 @@ sys.path.append('/home/zia/Desktop/MasterThesis/')
 
 from thesis.training_result import TrainingResult, clean_tensor_str
 
-from thesis.dataset import OneClassDataset
+from thesis.dataset import OneClassDataset, GlobalContrastiveNormalizationTransform, MinMaxNormalizationTransform
 from thesis.models import Encoder, Discriminator
 
+# min max value for each class after applying resize and global contrastive normalization
+CIFAR10_MIN_MAX = [[-25.502487182617188, 14.122282981872559], [-6.209507465362549, 8.61945629119873], [-30.79606056213379, 14.055601119995117], [-10.863265991210938, 10.729541778564453], [-9.717262268066406, 10.797706604003906], [-9.01405143737793, 9.231534004211426], [-7.824115753173828, 12.017197608947754], [-6.087644100189209, 11.072850227355957], [-15.263185501098633, 14.233451843261719], [-5.253917694091797, 8.3646240234375]]
 
 def train(config):
     inlier = [config['class']]
     outlier = list(range(10))
     outlier.remove(config['class'])
 
-    if config['dataset'] == 'cifar':
-        dataset = CIFAR10(root='../', train=True, download=True)
-        normalization_transform = Normalize((0.5, 0.5, 0.5), (0.5, 0.5, 0.5))
-    elif config['dataset'] == 'mnist':
-        dataset = MNIST(root='../', train=True, download=True)
-        normalization_transform = Normalize((0.5), (0.5))
+    dataset = CIFAR10(root='../', train=True, download=True)
+    normlization_transforms = transforms.Compose([ToTensor(), Resize((config['height'], config['width'])), Normalize((0.5, 0.5, 0.5), (0.5, 0.5, 0.5))])
 
-    inlier_dataset = OneClassDataset(dataset, one_class_labels=inlier, transform=transforms.Compose( [ToTensor(), Resize(size=(config['height'], config['width'])), normalization_transform]))
-    outlier_dataset = OneClassDataset(dataset, zero_class_labels=outlier, transform=transforms.Compose( [ToTensor(), Resize(size=(config['height'], config['width'])), normalization_transform]))
+    inlier_dataset = OneClassDataset(dataset, one_class_labels=inlier, transform=normlization_transforms)
+    outlier_dataset = OneClassDataset(dataset, zero_class_labels=outlier, transform=normlization_transforms)
 
     train_inlier_dataset = Subset(inlier_dataset, range(0, (int)(.7*len(inlier_dataset))))
     validation_inlier_dataset = Subset(inlier_dataset, range((int)(.7*len(inlier_dataset)), len(inlier_dataset)))
@@ -56,6 +54,7 @@ def train(config):
 
     f = Discriminator(config).cuda()
     e = Encoder(config).cuda()
+    # e.load_state_dict(torch.load(f'model_autoencoder/run_1668195952/encoder_class_{config["class"]}'))
     f.train()
     e.train()
     f.apply(weights_init)
@@ -76,8 +75,12 @@ def train(config):
         except StopIteration:
             return False, None
 
-    _, _, starting_roc = evaluate(train_dataset, validation_dataset, e, config)
+    try:
+        _, _, starting_roc = evaluate(train_dataset, validation_dataset, e, config)
+    except ValueError:
+        starting_roc = torch.tensor([-1, -1, -1])
     training_result = TrainingResult(config, starting_roc)
+    print(f'class: {config["class"]}, starting_roc: {starting_roc}')
     for encoder_iter in range(1, config['encoder_iters']+1):
         for _ in range(config['n_critic']):
             items_left, batch = _next(discriminator_dataloader_iter)
@@ -203,20 +206,20 @@ class NoDaemonProcessPool(multiprocessing.pool.Pool):
 
 if __name__ == '__main__':
     torch.multiprocessing.set_sharing_strategy('file_system')
+    while True:
+        result_directory = f'model_cifar_20/run_{(int)(time())}'
+        os.mkdir(result_directory)
 
-    result_directory = f'model_cifar_20/run_{(int)(time())}'
-    os.mkdir(result_directory)
+        config = {'height': 64, 'width': 64, 'batch_size': 64, 'n_critic': 5, 'clip': 1e-2, 'learning_rate': 5e-5, 'encoder_iters': (int)(10000), 'z_dim': 20, 'dataset': 'cifar', 'var_scale': 1, 'result_directory': result_directory}
+        # config = {'height': 64, 'width': 64, 'batch_size': 64, 'n_critic': 6, 'clip': 1e-2, 'learning_rate': 5e-5, 'epochs': (int)(1000), 'z_dim': 32, 'dataset': 'mnist', 'var_scale': 1}
 
-    config = {'height': 64, 'width': 64, 'batch_size': 64, 'n_critic': 5, 'clip': 1e-2, 'learning_rate': 5e-5, 'encoder_iters': (int)(10000), 'z_dim': 20, 'dataset': 'cifar', 'var_scale': 1, 'result_directory': result_directory}
-    # config = {'height': 64, 'width': 64, 'batch_size': 64, 'n_critic': 6, 'clip': 1e-2, 'learning_rate': 5e-5, 'epochs': (int)(1000), 'z_dim': 32, 'dataset': 'mnist', 'var_scale': 1}
+        for j in range(0, 10, 5):
+            with NoDaemonProcessPool(processes=10) as pool:
+                configs = []
+                for i in range(j, j+5):
+                    _config = config.copy()
+                    _config['class'] = i
+                    configs.append(_config)
 
-    for j in range(0, 10, 5):
-        with NoDaemonProcessPool(processes=10) as pool:
-            configs = []
-            for i in range(j, j+5):
-                _config = config.copy()
-                _config['class'] = i
-                configs.append(_config)
-
-            for _ in pool.imap_unordered(train, configs):
-                pass
+                for _ in pool.imap_unordered(train, configs):
+                    pass

@@ -9,14 +9,15 @@ from torch.utils.data import Subset, ConcatDataset, DataLoader
 from torchvision.datasets import CIFAR10
 from torchvision.transforms import Normalize, transforms, ToTensor, Resize
 
-from thesis.dataset import OneClassDataset
-from thesis.main import evaluate
+from thesis.dataset import OneClassDataset, GlobalContrastiveNormalizationTransform, MinMaxNormalizationTransform
+from thesis.main import evaluate, CIFAR10_MIN_MAX
 from thesis.models import Encoder
 
 
 def generate_plots_and_csv():
-    folder_name = 'model_cifar_20/run_7/'
+    folder_name = 'model_cifar_20/run_1668315792/'
     classes = list(range(10))
+    classes = [c for c in classes if c not in []]
     plt.rcParams['font.size'] = '12'
     fig, ax = plt.subplots(len(classes), 3, figsize=(15, len(classes)*5))
     spaces = ' ' * 30
@@ -38,10 +39,10 @@ def generate_plots_and_csv():
         outlier.remove(config['class'])
 
         dataset = CIFAR10(root='../', train=True, download=True)
-        normalization_transform = Normalize((0.5, 0.5, 0.5), (0.5, 0.5, 0.5))
+        normlization_transforms = transforms.Compose( [ToTensor(), Resize((config['height'], config['width'])), Normalize((0.5, 0.5, 0.5), (0.5, 0.5, 0.5))])
 
-        inlier_dataset = OneClassDataset(dataset, one_class_labels=inlier, transform=transforms.Compose( [ToTensor(), Resize(size=(config['height'], config['width'])), normalization_transform]))
-        outlier_dataset = OneClassDataset(dataset, zero_class_labels=outlier, transform=transforms.Compose( [ToTensor(), Resize(size=(config['height'], config['width'])), normalization_transform]))
+        inlier_dataset = OneClassDataset(dataset, one_class_labels=inlier, transform=normlization_transforms)
+        outlier_dataset = OneClassDataset(dataset, zero_class_labels=outlier, transform=normlization_transforms)
 
         train_inlier_dataset = Subset(inlier_dataset, range(0, (int)(.7*len(inlier_dataset))))
         validation_inlier_dataset = Subset(inlier_dataset, range((int)(.7*len(inlier_dataset)), len(inlier_dataset)))

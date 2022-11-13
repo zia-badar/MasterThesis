@@ -61,6 +61,7 @@ class Encoder(nn.Module):
 
     def forward(self, x):
         x = self.e(x)
+        x = x.squeeze()
         return x
 
     def heat_map(self, x):
