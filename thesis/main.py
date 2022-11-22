@@ -1,27 +1,25 @@
 import multiprocessing
 import os
 import pickle
+import sys
 from time import time
 
 import numpy as np
 import torch
 from sklearn.metrics import roc_auc_score
-from torch import norm, kl_div
+from torch import norm
 from torch.distributions import MultivariateNormal
 from torch.linalg import eig
 from torch.optim import RMSprop
-from torch.utils.data import DataLoader, random_split, ConcatDataset, Subset
-from torchvision.datasets import MNIST, CIFAR10
+from torch.utils.data import DataLoader, ConcatDataset, Subset
+from torchvision.datasets import CIFAR10
 from torchvision.transforms import ToTensor, transforms, Resize, Normalize
-from tqdm import tqdm
-
-import sys
 
 sys.path.append('/home/zia/Desktop/MasterThesis/')
 
 from thesis.training_result import TrainingResult, clean_tensor_str
 
-from thesis.dataset import OneClassDataset, GlobalContrastiveNormalizationTransform, MinMaxNormalizationTransform
+from thesis.dataset import OneClassDataset, RandomPermutationTransform
 from thesis.models import Encoder, Discriminator
 
 # min max value for each class after applying resize and global contrastive normalization
@@ -34,15 +32,19 @@ def train(config):
 
     dataset = CIFAR10(root='../', train=True, download=True)
     normlization_transforms = transforms.Compose([ToTensor(), Resize((config['height'], config['width'])), Normalize((0.5, 0.5, 0.5), (0.5, 0.5, 0.5))])
+    # normalizate_augmented_transform = transforms.Compose([ToTensor(), Resize((config['height'], config['width'])), RandomPermutationTransform(), Normalize((0.5, 0.5, 0.5), (0.5, 0.5, 0.5))])
 
     inlier_dataset = OneClassDataset(dataset, one_class_labels=inlier, transform=normlization_transforms)
+    # augmented_inlier_dataset = OneClassDataset(dataset, one_class_labels=inlier, transform=normalizate_augmented_transform)
     outlier_dataset = OneClassDataset(dataset, zero_class_labels=outlier, transform=normlization_transforms)
 
     train_inlier_dataset = Subset(inlier_dataset, range(0, (int)(.7*len(inlier_dataset))))
+    # train_augmented_inlier_dataset = Subset(augmented_inlier_dataset, range(0, (int)(.7*len(inlier_dataset))))
     validation_inlier_dataset = Subset(inlier_dataset, range((int)(.7*len(inlier_dataset)), len(inlier_dataset)))
     validation_dataset = ConcatDataset([validation_inlier_dataset, outlier_dataset])
 
     train_dataset = train_inlier_dataset
+    # train_augmented_dataset = train_augmented_inlier_dataset
 
     def weights_init(m):
         classname = m.__class__.__name__
@@ -66,6 +68,7 @@ def train(config):
     z_dist = MultivariateNormal(torch.zeros(config['z_dim']).cuda(), scaling*torch.eye(config['z_dim']).cuda())
 
     discriminator_dataloader_iter = iter(DataLoader(train_dataset, batch_size=config['batch_size'], shuffle=True, drop_last=True, num_workers=20))
+    # discriminator_augmented_dataloader_iter = iter(DataLoader(train_augmented_dataset, batch_size=config['batch_size'], shuffle=True, drop_last=True, num_workers=20))
     encoder_dataloader_iter = iter(DataLoader(train_dataset, batch_size=config['batch_size'], shuffle=True, drop_last=True, num_workers=20))
 
     def _next(iter):
@@ -76,62 +79,104 @@ def train(config):
             return False, None
 
     try:
-        _, _, starting_roc = evaluate(train_dataset, validation_dataset, e, config)
+        _, starting_roc, _ = evaluate(train_dataset, validation_dataset, e, config)
     except ValueError:
         starting_roc = torch.tensor([-1, -1, -1])
     training_result = TrainingResult(config, starting_roc)
     print(f'class: {config["class"]}, starting_roc: {starting_roc}')
+    previous_mean = torch.zeros((config['z_dim'])).cuda()
+    # last_epoch_em_distance = 0
     for encoder_iter in range(1, config['encoder_iters']+1):
         for _ in range(config['n_critic']):
             items_left, batch = _next(discriminator_dataloader_iter)
-
             if not items_left:
                 discriminator_dataloader_iter = iter(DataLoader(train_dataset, batch_size=config['batch_size'], shuffle=True, drop_last=True, num_workers=20))
                 _, batch = _next(discriminator_dataloader_iter)
+                # last_epoch_em_distance = 0
 
-            x, l = batch
+            # items_left, batch_aug = _next(discriminator_augmented_dataloader_iter)
+            # if not items_left:
+            #     discriminator_augmented_dataloader_iter = iter(DataLoader(train_augmented_dataset, batch_size=config['batch_size'], shuffle=True, drop_last=True, num_workers=20))
+            #     _, batch_aug = _next(discriminator_augmented_dataloader_iter)
+
+
+            x, _ = batch
             x = x.cuda()
+            # x_aug, _ = batch_aug
+            # x_aug = x_aug.cuda()
             z = z_dist.sample((config['batch_size'],)).cuda()
 
             optim_f.zero_grad()
             loss = -(torch.mean(f(z)) - torch.mean(f(e(x))))
+            # loss = -(2*torch.mean(f(z)) - torch.mean(f(e(x))) - torch.mean(f(e(x_aug))))
             loss.backward()
             optim_f.step()
+            # last_epoch_em_distance += loss.item()
 
             for p in f.parameters():
                 p.data = p.data.clamp(-config['clip'], config['clip'])
 
         items_left, batch = _next(encoder_dataloader_iter)
-
         if not items_left:
             encoder_dataloader_iter = iter(DataLoader(train_dataset, batch_size=config['batch_size'], shuffle=True, drop_last=True, num_workers=20))
             _, batch = _next(encoder_dataloader_iter)
 
+        # items_left, batch_aug = _next(discriminator_augmented_dataloader_iter)
+        # if not items_left:
+        #     discriminator_augmented_dataloader_iter = iter(DataLoader(train_augmented_dataset, batch_size=config['batch_size'], shuffle=True, drop_last=True, num_workers=20))
+        #     _, batch_aug = _next(discriminator_augmented_dataloader_iter)
+
         (x, l) = batch
         x = x.cuda()
+        # x_aug, _ = batch_aug
+        # x_aug = x_aug.cuda()
         optim_e.zero_grad()
         e_x = e(x)
         loss = -torch.mean(f(e_x))
+        # e_x_aug = e(x_aug)
+        # e_x_mean = torch.mean(e_x, dim=0)
+        # e_x_aug_mean = torch.mean(e_x_aug, dim=0)
+        weight = 1e-3
+        # loss = -(torch.mean(f(e_x)) - torch.mean(f(e_x_aug)) - weight*torch.clip(torch.norm(e_x_mean)**2, 0.5) - weight*torch.clip(torch.norm(e_x_aug_mean)**2, 0.5))
+        # loss = -(torch.mean(f(e_x)) - torch.mean(f(e_x_aug)))
         loss.backward()
         optim_e.step()
 
-        torch.cuda.empty_cache()
+        # torch.cuda.empty_cache()
 
         if (encoder_iter) % 100 == 0:
             try:
-                cov, var, roc_auc = evaluate(train_dataset, validation_dataset, e, config)
+                cov, roc_auc, mean = evaluate(train_dataset, validation_dataset, e, config)
                 eig_val, eig_vec = eig(cov)
                 condition_no = torch.max(torch.real(eig_val)).item() / torch.min(torch.real(eig_val)).item()
+                # non_diag_cov = torch.masked_select(cov, ~torch.eye(config['z_dim'], dtype=torch.bool).cuda())
+                # non_diag_sum = torch.sum(torch.abs(non_diag_cov)).item()
+                # non_diag_sum2 = torch.sum(non_diag_cov**2).item()
+                # identity_diff_cov = torch.eye(config['z_dim']).cuda() - cov
+                # cov_sum = torch.sum(torch.abs(identity_diff_cov)).item()
+                # cov_sum_2 = torch.sum(identity_diff_cov**2).item()
             except ValueError:
                 print(f'exception in class {config["class"]}')
+                with open(f'{config["result_directory"]}/{config["dataset"]}_{config["class"]}_{config["instance"]}', 'wb') as file:
+                    pickle.dump(training_result, file, protocol=pickle.HIGHEST_PROTOCOL)
                 return
-            training_result.update(cov, var, roc_auc, eig_val, eig_vec, e)
+            training_result.update(cov, roc_auc, eig_val, eig_vec, e, previous_mean, mean)
 
             if encoder_iter % (4 * 100) == 0:
-                print(f'{encoder_iter}\n{training_result}\ncondition_no:{np.round(condition_no, 2)}\nroc:{clean_tensor_str(roc_auc)}\n')
+                print(f'mean:{torch.norm(mean).item()}\ncov: {cov}\n\n{encoder_iter}\n{training_result}\ncondition_no:{np.round(condition_no, 2)}\nroc:{clean_tensor_str(roc_auc)}'
+                      f'\nmean_diff: {torch.norm(mean - previous_mean).item()}')
+                      # f'\nmin_non_diag_sum, roc:{training_result.min_non_diag_sum} {clean_tensor_str(training_result.min_non_diag_sum_roc)}\n'
+                      # f'min_non_diag_sum_2, roc:{training_result.min_non_diag_sum_2} {clean_tensor_str(training_result.min_non_diag_sum_roc_2)}\n'
+                      # f'min_cov_sum, roc:{training_result.min_cov_sum} {clean_tensor_str(training_result.min_cov_sum_roc)}\n'
+                      # f'min_cov_sum_2, roc:{training_result.min_cov_sum_2} {clean_tensor_str(training_result.min_cov_sum_roc_2)}\n'
+                      # f'em distance: {(last_epoch_em_distance/len(discriminator_dataloader_iter))}\nmin_dit:{training_result.min_dit}\n'
+                      # f'max_dit:{training_result.max_dit}\nmin_eig:{training_result.eig_min}\nmax_eig:{training_result.eig_max}\nnon_diag_sum:{non_diag_sum}\nnon_diag_sum_2:{non_diag_sum2}')
+            previous_mean = mean
 
-    with open(f'{config["result_directory"]}/{config["dataset"]}_{config["class"]}', 'wb') as file:
+
+    with open(f'{config["result_directory"]}/{config["dataset"]}_{config["class"]}_{config["instance"]}', 'wb') as file:
         pickle.dump(training_result, file, protocol=pickle.HIGHEST_PROTOCOL)
+
 
 def evaluate(train_dataset, validation_dataset, e, config):
     train_dataloader = DataLoader(train_dataset, batch_size=config['batch_size'], shuffle=True, drop_last=True, num_workers=20)
@@ -171,21 +216,22 @@ def evaluate(train_dataset, validation_dataset, e, config):
         roc_auc.append(roc_auc_score(np.abs(targets - 1), scores[2]))
         roc_auc = torch.tensor(roc_auc)
 
-        var_samples = []
-        for i in range(100):
-            random_unit = torch.rand_like(zs[0])
-            random_unit /= torch.norm(random_unit)
-
-            projections = zs @ random_unit
-            var_samples.append(torch.var(projections).item())
-
-        var = torch.tensor(var_samples).mean().item()
+        # var_samples = []
+        # for i in range(100):
+        #     random_unit = torch.rand_like(zs[0])
+        #     random_unit /= torch.norm(random_unit)
+        #
+        #     projections = zs @ random_unit
+        #     var_samples.append(torch.var(projections).item())
+        #
+        # var = torch.tensor(var_samples).mean().item()
 
         # print(f'iter: {iter}, roc: {roc_auc}, mean: {mean}, cov: {co_var}')
 
         e.train()
 
-    return co_var, var, roc_auc
+    # return co_var, var, roc_auc
+    return co_var, roc_auc, mean
 
 # https://stackoverflow.com/questions/6974695/python-process-pool-non-daemonic
 class NoDaemonProcess(multiprocessing.Process):
@@ -205,21 +251,28 @@ class NoDaemonProcessPool(multiprocessing.pool.Pool):
         return proc
 
 if __name__ == '__main__':
-    torch.multiprocessing.set_sharing_strategy('file_system')
-    while True:
-        result_directory = f'model_cifar_20/run_{(int)(time())}'
-        os.mkdir(result_directory)
+    # torch.multiprocessing.set_sharing_strategy('file_system')
+    result_directory = f'model_cifar_20/run_28'
 
-        config = {'height': 64, 'width': 64, 'batch_size': 64, 'n_critic': 5, 'clip': 1e-2, 'learning_rate': 5e-5, 'encoder_iters': (int)(10000), 'z_dim': 20, 'dataset': 'cifar', 'var_scale': 1, 'result_directory': result_directory}
-        # config = {'height': 64, 'width': 64, 'batch_size': 64, 'n_critic': 6, 'clip': 1e-2, 'learning_rate': 5e-5, 'epochs': (int)(1000), 'z_dim': 32, 'dataset': 'mnist', 'var_scale': 1}
+    config = {'height': 64, 'width': 64, 'batch_size': 64, 'n_critic': 5, 'clip': 1e-2, 'learning_rate': 5e-5, 'encoder_iters': (int)(10000), 'z_dim': 20, 'dataset': 'cifar', 'var_scale': 1, 'result_directory': result_directory}
+    # config = {'height': 64, 'width': 64, 'batch_size': 64, 'n_critic': 6, 'clip': 1e-2, 'learning_rate': 5e-5, 'epochs': (int)(1000), 'z_dim': 32, 'dataset': 'mnist', 'var_scale': 1}
 
-        for j in range(0, 10, 5):
-            with NoDaemonProcessPool(processes=10) as pool:
-                configs = []
-                for i in range(j, j+5):
-                    _config = config.copy()
-                    _config['class'] = i
-                    configs.append(_config)
+    # _class = (int)(sys.argv[1])
+    _instance = (int)(sys.argv[2])
 
-                for _ in pool.imap_unordered(train, configs):
-                    pass
+    for _class in range(2, 10):
+        _config = config.copy()
+        _config['class'] = _class
+        _config['instance'] = _instance
+        train(_config)
+
+    # for j in range(0, 10, 5):
+    #     with NoDaemonProcessPool(processes=10) as pool:
+    #         configs = []
+    #         for i in range(j, j+5):
+    #             _config = config.copy()
+    #             _config['class'] = i
+    #             configs.append(_config)
+    #
+    #         for _ in pool.imap_unordered(train, configs):
+    #             pass

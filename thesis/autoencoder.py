@@ -10,8 +10,13 @@ from torchvision.datasets import CIFAR10
 from torchvision.transforms import transforms, ToTensor, Resize, Normalize
 from tqdm import tqdm
 
+import sys
+
+sys.path.append('/home/zia/Desktop/MasterThesis/')
+
 from thesis.dataset import OneClassDataset, GlobalContrastiveNormalizationTransform, MinMaxNormalizationTransform
 from thesis.models import Encoder, Decoder
+
 
 # min max value for each class after applying global contrastive normalization
 CIFAR10_MIN_MAX = [[-28.94080924987793, 13.802960395812988], [-6.681769371032715, 9.158066749572754],
@@ -27,7 +32,7 @@ def train(config):
     outlier.remove(config['class'])
 
     dataset = CIFAR10(root='../', train=True, download=True)
-    normlization_transforms = transforms.Compose([ToTensor(), Resize((config['height'], config['width'])), GlobalContrastiveNormalizationTransform(), MinMaxNormalizationTransform(CIFAR10_MIN_MAX[config['class']]), Normalize((0.5, 0.5, 0.5), (0.5, 0.5, 0.5))])
+    normlization_transforms = transforms.Compose([ToTensor(), Resize((config['height'], config['width'])), Normalize((0.5, 0.5, 0.5), (0.5, 0.5, 0.5))])
 
     inlier_dataset = OneClassDataset(dataset, zero_class_labels=inlier, transform=normlization_transforms)
     outlier_dataset = OneClassDataset(dataset, one_class_labels=outlier, transform=normlization_transforms)
@@ -37,7 +42,7 @@ def train(config):
     validation_dataset = ConcatDataset([validation_inlier_dataset, outlier_dataset])
 
     train_dataset = train_inlier_dataset
-    train_dataloader = DataLoader(train_dataset, batch_size=config['batch_size'], shuffle=True, num_workers=20)
+    train_dataloader = DataLoader(train_dataset, batch_size=config['batch_size'], shuffle=True, num_workers=20, pin_memory=True)
 
     def weights_init(m):
         classname = m.__class__.__name__
@@ -59,10 +64,10 @@ def train(config):
         total_loss = 0
         for x, _ in train_dataloader:
             optim.zero_grad()
-            x = x.cuda()
+            x = x.cuda(non_blocking=True)
             encoded = encoder(x.cuda())
             decoding = decoder(encoded)
-            diff = torch.sum(((x.cuda() - decoding) ** 2), dim=[1, 2, 3])                                          # sum diff across channel, height, width dimensions
+            diff = torch.sum(((x - decoding) ** 2), dim=[1, 2, 3])                                          # sum diff across channel, height, width dimensions
             loss = torch.mean(diff)
             loss.backward()
             optim.step()

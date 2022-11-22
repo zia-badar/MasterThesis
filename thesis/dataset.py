@@ -1,6 +1,11 @@
+from random import randrange
+
+import numpy as np
 import torch
+from matplotlib import pyplot as plt
 from torch.utils.data import Dataset
 from torchvision.transforms import Resize
+from torchvision.transforms.functional import rotate
 
 
 class OneClassDataset(Dataset):
@@ -25,6 +30,26 @@ class OneClassDataset(Dataset):
 
     def __len__(self):
         return len(self.filtered_indexes)
+
+class Random90RotationTransform:
+    def __init__(self):
+        self.angles = [90, 180, 270]
+
+    def __call__(self, x):
+        x = rotate(x, angle=self.angles[randrange(len(self.angles))])
+        return x
+
+class RandomPermutationTransform:
+    def __init__(self):
+        self.no_splits = torch.tensor([4, 4])
+        self.image_size = torch.tensor([64, 64])
+        self.split_size = (self.image_size / self.no_splits).int()
+
+    def __call__(self, x):
+        x = x.unfold(1, self.split_size[0], self.split_size[0]).unfold(2, self.split_size[1], self.split_size[1]).reshape( [-1, self.no_splits.prod(), self.split_size[0], self.split_size[1]])[:, torch.randperm(self.no_splits.prod())]
+        x = x.unfold(1, self.no_splits[0], self.no_splits[0]).permute([0, 4, 2, 1, 3]).reshape(-1, self.image_size[0], self.image_size[1])
+        return x
+
 
 class GlobalContrastiveNormalizationTransform:
     def __init__(self):
