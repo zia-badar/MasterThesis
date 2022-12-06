@@ -108,10 +108,8 @@ def train(config):
 
             optim_f.zero_grad()
             loss = -(torch.mean(f(z)) - torch.mean(f(e(x))))
-            # loss = -(2*torch.mean(f(z)) - torch.mean(f(e(x))) - torch.mean(f(e(x_aug))))
             loss.backward()
             optim_f.step()
-            # last_epoch_em_distance += loss.item()
 
             for p in f.parameters():
                 p.data = p.data.clamp(-config['clip'], config['clip'])
@@ -133,28 +131,14 @@ def train(config):
         optim_e.zero_grad()
         e_x = e(x)
         loss = -torch.mean(f(e_x))
-        # e_x_aug = e(x_aug)
-        # e_x_mean = torch.mean(e_x, dim=0)
-        # e_x_aug_mean = torch.mean(e_x_aug, dim=0)
-        weight = 1e-3
-        # loss = -(torch.mean(f(e_x)) - torch.mean(f(e_x_aug)) - weight*torch.clip(torch.norm(e_x_mean)**2, 0.5) - weight*torch.clip(torch.norm(e_x_aug_mean)**2, 0.5))
-        # loss = -(torch.mean(f(e_x)) - torch.mean(f(e_x_aug)))
         loss.backward()
         optim_e.step()
-
-        # torch.cuda.empty_cache()
 
         if (encoder_iter) % 100 == 0:
             try:
                 cov, roc_auc, mean = evaluate(train_dataset, validation_dataset, e, config)
                 eig_val, eig_vec = eig(cov)
                 condition_no = torch.max(torch.real(eig_val)).item() / torch.min(torch.real(eig_val)).item()
-                # non_diag_cov = torch.masked_select(cov, ~torch.eye(config['z_dim'], dtype=torch.bool).cuda())
-                # non_diag_sum = torch.sum(torch.abs(non_diag_cov)).item()
-                # non_diag_sum2 = torch.sum(non_diag_cov**2).item()
-                # identity_diff_cov = torch.eye(config['z_dim']).cuda() - cov
-                # cov_sum = torch.sum(torch.abs(identity_diff_cov)).item()
-                # cov_sum_2 = torch.sum(identity_diff_cov**2).item()
             except ValueError:
                 print(f'exception in class {config["class"]}')
                 with open(f'{config["result_directory"]}/{config["dataset"]}_{config["class"]}_{config["instance"]}', 'wb') as file:
@@ -165,12 +149,6 @@ def train(config):
             if encoder_iter % (4 * 100) == 0:
                 print(f'mean:{torch.norm(mean).item()}\ncov: {cov}\n\n{encoder_iter}\n{training_result}\ncondition_no:{np.round(condition_no, 2)}\nroc:{clean_tensor_str(roc_auc)}'
                       f'\nmean_diff: {torch.norm(mean - previous_mean).item()}')
-                      # f'\nmin_non_diag_sum, roc:{training_result.min_non_diag_sum} {clean_tensor_str(training_result.min_non_diag_sum_roc)}\n'
-                      # f'min_non_diag_sum_2, roc:{training_result.min_non_diag_sum_2} {clean_tensor_str(training_result.min_non_diag_sum_roc_2)}\n'
-                      # f'min_cov_sum, roc:{training_result.min_cov_sum} {clean_tensor_str(training_result.min_cov_sum_roc)}\n'
-                      # f'min_cov_sum_2, roc:{training_result.min_cov_sum_2} {clean_tensor_str(training_result.min_cov_sum_roc_2)}\n'
-                      # f'em distance: {(last_epoch_em_distance/len(discriminator_dataloader_iter))}\nmin_dit:{training_result.min_dit}\n'
-                      # f'max_dit:{training_result.max_dit}\nmin_eig:{training_result.eig_min}\nmax_eig:{training_result.eig_max}\nnon_diag_sum:{non_diag_sum}\nnon_diag_sum_2:{non_diag_sum2}')
             previous_mean = mean
 
 
@@ -216,21 +194,8 @@ def evaluate(train_dataset, validation_dataset, e, config):
         roc_auc.append(roc_auc_score(np.abs(targets - 1), scores[2]))
         roc_auc = torch.tensor(roc_auc)
 
-        # var_samples = []
-        # for i in range(100):
-        #     random_unit = torch.rand_like(zs[0])
-        #     random_unit /= torch.norm(random_unit)
-        #
-        #     projections = zs @ random_unit
-        #     var_samples.append(torch.var(projections).item())
-        #
-        # var = torch.tensor(var_samples).mean().item()
-
-        # print(f'iter: {iter}, roc: {roc_auc}, mean: {mean}, cov: {co_var}')
-
         e.train()
 
-    # return co_var, var, roc_auc
     return co_var, roc_auc, mean
 
 # https://stackoverflow.com/questions/6974695/python-process-pool-non-daemonic
@@ -251,28 +216,13 @@ class NoDaemonProcessPool(multiprocessing.pool.Pool):
         return proc
 
 if __name__ == '__main__':
-    # torch.multiprocessing.set_sharing_strategy('file_system')
     result_directory = f'model_cifar_20/run_28'
 
     config = {'height': 64, 'width': 64, 'batch_size': 64, 'n_critic': 5, 'clip': 1e-2, 'learning_rate': 5e-5, 'encoder_iters': (int)(10000), 'z_dim': 20, 'dataset': 'cifar', 'var_scale': 1, 'result_directory': result_directory}
-    # config = {'height': 64, 'width': 64, 'batch_size': 64, 'n_critic': 6, 'clip': 1e-2, 'learning_rate': 5e-5, 'epochs': (int)(1000), 'z_dim': 32, 'dataset': 'mnist', 'var_scale': 1}
 
-    # _class = (int)(sys.argv[1])
+    _class = (int)(sys.argv[1])
     _instance = (int)(sys.argv[2])
 
-    for _class in range(2, 10):
-        _config = config.copy()
-        _config['class'] = _class
-        _config['instance'] = _instance
-        train(_config)
-
-    # for j in range(0, 10, 5):
-    #     with NoDaemonProcessPool(processes=10) as pool:
-    #         configs = []
-    #         for i in range(j, j+5):
-    #             _config = config.copy()
-    #             _config['class'] = i
-    #             configs.append(_config)
-    #
-    #         for _ in pool.imap_unordered(train, configs):
-    #             pass
+    config['class'] = _class
+    config['instance'] = _instance
+    train(config)
