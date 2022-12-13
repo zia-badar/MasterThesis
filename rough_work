@@ -1,0 +1,37 @@
+
+class EmbeddedDataset(Dataset):
+    def __init__(self, dataset, augment_type=-1):
+        embedding_file_name = 'cifar_embeddings' + (f'_{augment_type}' if augment_type != -1 else '')
+        label_file_name = 'cifar_labels' + (f'_{augment_type}' if augment_type != -1 else '')
+
+        if not exists(embedding_file_name):
+            efficent_net_4 = efficientnet_b4(weights='DEFAULT').cuda()
+            efficent_net_4_transform = EfficientNet_B4_Weights.IMAGENET1K_V1.transforms().cuda()
+            self.embeddings = []
+            self.labels = []
+            augmentation_transform = Random90RotationTransform() if augment_type == 0 else RandomPermutationTransform()
+            to_tensor_transform = ToTensor()
+            with torch.no_grad():
+                efficent_net_4.eval()
+                for x, l in tqdm(dataset):
+                    if augment_type != -1:
+                        x = augmentation_transform(to_tensor_transform(x))
+                    x = efficent_net_4_transform(x).unsqueeze(0).cuda()
+                    embedding = flatten(efficent_net_4.avgpool(efficent_net_4.features(x)))
+                    self.embeddings.append(embedding.cpu())
+                    self.labels.append(l)
+
+            self.embeddings = torch.stack(self.embeddings)
+            self.labels = torch.tensor(self.labels)
+
+            torch.save(self.embeddings, embedding_file_name)
+            torch.save(self.labels, label_file_name)
+        else:
+            self.embeddings = torch.load(embedding_file_name)
+            self.labels = torch.load(label_file_name)
+
+    def __getitem__(self, item):
+        return self.embeddings[item], self.labels[item].item()
+
+    def __len__(self):
+        return len(self.embeddings)

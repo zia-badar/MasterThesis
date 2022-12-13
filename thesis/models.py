@@ -68,6 +68,50 @@ class Encoder(nn.Module):
         return self.e.grad_cam(x)
         # return x
 
+class Encoder_2(nn.Module):
+
+    def __init__(self, config):
+        super(Encoder_2, self).__init__()
+
+        input_dim = 1792
+        self.e = nn.Sequential(
+            # nn.Linear(in_features=input_dim, out_features=(int)(input_dim/2)),
+            # BatchNorm1d(num_features=(int)(input_dim/(2))),
+            # LeakyReLU(0.2, inplace=True),
+            # nn.Linear(in_features=(int)(input_dim / (2)), out_features=(int)(input_dim / (2 ** 2))),
+            # BatchNorm1d(num_features=(int)(input_dim / (2 ** 2))),
+            # LeakyReLU(0.2, inplace=True),
+            # nn.Linear(in_features=(int)(input_dim / (2 ** 2)), out_features=(int)(input_dim / (2 ** 3))),
+            # BatchNorm1d(num_features=(int)(input_dim / (2 ** 3))),
+            # LeakyReLU(0.2, inplace=True),
+            # nn.Linear(in_features=(int)(input_dim / (2 ** 3)), out_features=(int)(input_dim / (2 ** 4))),
+            # BatchNorm1d(num_features=(int)(input_dim / (2 ** 4))),
+            # LeakyReLU(0.2, inplace=True),
+            # nn.Linear(in_features=(int)(input_dim / (2 ** 4)), out_features=config['z_dim']),
+            # Tanh()
+            nn.Linear(in_features=input_dim, out_features=input_dim),
+            BatchNorm1d(num_features=input_dim),
+            # LeakyReLU(0.2, inplace=True),
+            nn.Linear(in_features=input_dim, out_features=input_dim),
+            BatchNorm1d(num_features=input_dim),
+            # LeakyReLU(0.2, inplace=True),
+            nn.Linear(in_features=input_dim, out_features=input_dim),
+            # nn.Linear(in_features=input_dim, out_features=input_dim),
+            BatchNorm1d(num_features=input_dim),
+            # LeakyReLU(0.2, inplace=True),
+            # nn.Linear(in_features=input_dim, out_features=input_dim),
+            # BatchNorm1d(num_features=input_dim),
+            # LeakyReLU(0.2, inplace=True),
+            # nn.Linear(in_features=input_dim, out_features=input_dim),
+            # BatchNorm1d(num_features=input_dim),
+            # LeakyReLU(0.2, inplace=True),
+            # nn.Linear(in_features=input_dim, out_features=config['z_dim']),
+            Tanh()
+        )
+
+    def forward(self, x):
+        return self.e(x)
+
 class Decoder(nn.Module):
 
     def __init__(self, config):
