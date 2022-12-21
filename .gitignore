@@ -13,3 +13,4 @@ thesis/output_results.log
 thesis/model_*
 thesis/best_model_*
 thesis/analysis.csv
+linearity_test_2/results/*

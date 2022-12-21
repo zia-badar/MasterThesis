@@ -1,3 +1,6 @@
+from pickle import dumps, dump
+from time import localtime, mktime
+
 import torch.nn
 from torch import softmax, sigmoid
 from torch.distributions import MultivariateNormal
@@ -9,19 +12,19 @@ from torchvision import transforms
 from torchvision.datasets import CIFAR10
 from torchvision.transforms import ToTensor
 
+from linearity_test_2.analysis import analyse
 from linearity_test_2.models import Discriminator, Encoder
 from linearity_test_2.datasets import ProjectedDataset
+from linearity_test_2.result import training_result
 
 
 def train_encoder(config):
-    # transform = transforms.Compose([
-    #     transforms.RandomCrop(32, padding=4),
-    #     transforms.RandomHorizontalFlip(),
-    #     transforms.ToTensor(),
-    # ])
-
-    train_dataset = ProjectedDataset(train=True)
-    validation_dataset = ProjectedDataset(train=True)
+    distribution = MultivariateNormal(loc=torch.zeros(config['encoding_dim']), covariance_matrix=torch.eye(config['encoding_dim']))
+    projection = torch.rand(size=(config['encoding_dim'], config['data_dim']))
+    # translation = 5 * torch.rand(size=(config['data_dim'],))
+    translation = 5 * torch.zeros(size=(config['data_dim'],))
+    train_dataset = ProjectedDataset(True, distribution, projection, translation)
+    validation_dataset = ProjectedDataset(True, distribution, projection, translation)
 
     f = Discriminator(config).cuda()
     e = Encoder(config).cuda()
@@ -33,20 +36,23 @@ def train_encoder(config):
         except StopIteration:
             return True, None
 
-    discriminator_dataloader_iter = iter(DataLoader(train_dataset, batch_size=config['batch_size'], shuffle=True, num_workers=20))
-    encoder_dataloader_iter = iter(DataLoader(train_dataset, batch_size=config['batch_size'], shuffle=True, num_workers=20))
+    discriminator_dataloader_iter = iter(DataLoader(train_dataset, batch_size=config['batch_size'], shuffle=True))
+    encoder_dataloader_iter = iter(DataLoader(train_dataset, batch_size=config['batch_size'], shuffle=True))
     optim_f = SGD(f.parameters(), lr=config['lr'], weight_decay=config['weight_decay'])
     optim_e = SGD(e.parameters(), lr=config['lr'], weight_decay=config['weight_decay'])
     normal_dist = MultivariateNormal(loc=torch.zeros(config['encoding_dim']), covariance_matrix=torch.eye(config['encoding_dim']))
-    mean, condition_no = evaluate_encoder(e, train_dataset, validation_dataset, config)
-    print(f'mean: {torch.norm(mean).item(): .4f}, condition_no: {condition_no.item(): .4f}')
+    mean, cov, condition_no = evaluate_encoder(e, train_dataset, validation_dataset, config)
+    result = training_result(projection, translation, config)
+    result.update(e, mean, cov, condition_no)
+    # result_file_name = f'results/result_{(int)(mktime(localtime()))}'
+    result_file_name = f'results/result_'
 
     for encoder_iter in range(1, config['encoder_iters']+1):
 
         for _ in range(config['discriminator_n']):
             empty, batch = _next(discriminator_dataloader_iter)
             if empty:
-                discriminator_dataloader_iter = iter(DataLoader(train_dataset, batch_size=config['batch_size'], shuffle=True, num_workers=20))
+                discriminator_dataloader_iter = iter(DataLoader(train_dataset, batch_size=config['batch_size'], shuffle=True))
                 _, batch = _next(discriminator_dataloader_iter)
 
             x, _ = batch
@@ -64,7 +70,7 @@ def train_encoder(config):
 
         empty, batch = _next(encoder_dataloader_iter)
         if empty:
-            encoder_dataloader_iter = iter(DataLoader(train_dataset, batch_size=config['batch_size'], shuffle=True, num_workers=20))
+            encoder_dataloader_iter = iter(DataLoader(train_dataset, batch_size=config['batch_size'], shuffle=True))
             _, batch = _next(encoder_dataloader_iter)
 
         x, _ = batch
@@ -77,44 +83,41 @@ def train_encoder(config):
         optim_e.step()
 
         if encoder_iter % 100 == 0:
-            mean, condition_no = evaluate_encoder(e, train_dataset, validation_dataset, config)
-            print(f'mean: {torch.norm(mean).item(): .4f}, condition_no: {condition_no.item(): .4f}')
-            torch.save(e.state_dict(), f'encoder_{config["class"]}')
+            mean, cov, condition_no = evaluate_encoder(e, train_dataset, validation_dataset, config)
+            result.update(e, mean, cov, condition_no)
+            print(f'iter: {encoder_iter}, mean: {torch.norm(mean).item() : .4f}, condition_no: {condition_no.item(): .4f}')
+
+            with open(result_file_name, 'wb') as file:
+                dump(result, file)
 
 def evaluate_encoder(encoder, train_dataset, validation_dataset, config):
     encoder.eval()
 
     with torch.no_grad():
-        train_dataloader = DataLoader(train_dataset, batch_size=config['batch_size'], shuffle=True, num_workers=20)
-        encodings = []
-        for x, _ in train_dataloader:
-            x = x.cuda()
-            encodings.append(encoder(x))
+        for dataset in [train_dataset]:
+            train_dataloader = DataLoader(dataset, batch_size=config['batch_size'], shuffle=True)
+            encodings = []
+            for x, _ in train_dataloader:
+                x = x.cuda()
+                encodings.append(encoder(x))
 
-        encodings = torch.cat(encodings)
-        mean = torch.mean(encodings, dim=0)
-        # print(f'std: {torch.std(encodings, dim=0)}')
-        cov = torch.cov(encodings.t(), correction=0)
-        eig_val, eig_vec = eig(cov)
-        condition_no = torch.max(eig_val.real) / torch.min(eig_val.real)
+            encodings = torch.cat(encodings)
+            mean = torch.mean(encodings, dim=0)
+            # print(f'std: {torch.std(encodings, dim=0)}')
+            cov = torch.cov(encodings.t(), correction=0)
+            eig_val, eig_vec = eig(cov)
+            condition_no = torch.max(eig_val.real) / torch.min(eig_val.real)
 
     encoder.train()
 
-    return mean, condition_no
+    return mean, cov, condition_no
 
 if __name__ == '__main__':
-    config = {'batch_size': 64, 'epochs': 200, 'data_dim': 64, 'encoding_dim': 8, 'encoder_iters': 1000000, 'discriminator_n': 4, 'lr': 1e-3, 'weight_decay': 1e-5, 'clip': 1e-2}
+    config = {'batch_size': 64, 'epochs': 200, 'data_dim': 3, 'encoding_dim': 2, 'encoder_iters': 10000, 'discriminator_n': 4, 'lr': 1e-3, 'weight_decay': 1e-5, 'clip': 1e-2}
 
     config['class'] = 0
     # train_classifier(config)
     # train_binary_classifier(config)
-    train_encoder(config)
+    # train_encoder(config)
 
-    # dataset = CIFAR10(root='../', train=True, transform=ToTensor())
-    # validation_dataset = Subset(dataset, range((int)(0.7 * len(dataset)), len(dataset)))
-    # outlier_classes = list(range(10))
-    # outlier_classes.remove(config['class'])
-    # validation_dataset = OneClassDataset(validation_dataset, one_class_labels=[config['class']], zero_class_labels=outlier_classes)
-    # model = classifier(1)
-    # model.load_state_dict(torch.load('cifar_binary_0_classifier'))
-    # print(f'accuracy: {evaluate_one_class_classifier(model, validation_dataset, config) : .4f}')
+    analyse()

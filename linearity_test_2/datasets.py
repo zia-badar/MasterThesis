@@ -7,19 +7,17 @@ from linearity_test_1.models import classifier
 
 class ProjectedDataset(Dataset):
 
-    def __init__(self, train):
+    def __init__(self, train, distribution, projection, translation):
         super(ProjectedDataset, self).__init__()
 
-        low_dim = 8
-        high_dim = 64
-        distribution = MultivariateNormal(loc=torch.zeros(low_dim), covariance_matrix=torch.eye(low_dim))
-        projection = torch.rand(size=(low_dim, high_dim))
-        translation = 2*torch.rand(size=(high_dim,))
+        self.distribution = distribution
+        self.projection = projection
+        self.translation = translation
 
         if train:
-            self.dataset = distribution.sample(sample_shape=(5000,)) @ projection + translation
+            self.dataset = self.distribution.sample(sample_shape=(5000,)) @ self.projection + self.translation
         else:
-            self.dataset = distribution.sample(sample_shape=(1500,)) @ projection + translation
+            self.dataset = self.distribution.sample(sample_shape=(1500,)) @ self.projection + self.translation
 
     def __getitem__(self, item):
 
