@@ -21,8 +21,8 @@ from linearity_test_2.result import training_result
 def train_encoder(config):
     distribution = MultivariateNormal(loc=torch.zeros(config['encoding_dim']), covariance_matrix=torch.eye(config['encoding_dim']))
     projection = torch.rand(size=(config['encoding_dim'], config['data_dim']))
-    # translation = 5 * torch.rand(size=(config['data_dim'],))
-    translation = 5 * torch.zeros(size=(config['data_dim'],))
+    translation = 5 * torch.rand(size=(config['data_dim'],))
+    # translation = 5 * torch.zeros(size=(config['data_dim'],))
     train_dataset = ProjectedDataset(True, distribution, projection, translation)
     validation_dataset = ProjectedDataset(True, distribution, projection, translation)
 
@@ -113,7 +113,7 @@ def evaluate_encoder(encoder, train_dataset, validation_dataset, config):
     return mean, cov, condition_no
 
 if __name__ == '__main__':
-    config = {'batch_size': 64, 'epochs': 200, 'data_dim': 3, 'encoding_dim': 2, 'encoder_iters': 10000, 'discriminator_n': 4, 'lr': 1e-3, 'weight_decay': 1e-5, 'clip': 1e-2}
+    config = {'batch_size': 64, 'epochs': 200, 'data_dim': 3, 'encoding_dim': 3, 'encoder_iters': 10000, 'discriminator_n': 4, 'lr': 1e-3, 'weight_decay': 1e-5, 'clip': 1e-2}
 
     config['class'] = 0
     # train_classifier(config)

@@ -40,7 +40,14 @@ class Encoder(nn.Module):
     def __init__(self, config):
         super(Encoder, self).__init__()
 
+        scale = 1
         self.e = nn.Sequential(
+
+            # 3 -> 3, scale = 1
+            nn.BatchNorm1d(num_features=config['data_dim']),
+            nn.Linear(in_features=config['data_dim'], out_features=config['data_dim'] + scale, bias=False),
+            nn.BatchNorm1d(num_features=config['data_dim'] + scale),
+            nn.Linear(in_features=config['data_dim'] + scale, out_features=config['encoding_dim']),
 
             # 2 -> 3
             # nn.BatchNorm1d(num_features=config['data_dim']),
@@ -50,7 +57,7 @@ class Encoder(nn.Module):
             # nn.Linear(in_features=config['data_dim'], out_features=config['encoding_dim']),
 
             # nn.BatchNorm1d(num_features=config['data_dim']),
-            nn.Linear(in_features=config['data_dim'], out_features=config['encoding_dim'], bias=False),
+            # nn.Linear(in_features=config['data_dim'], out_features=config['encoding_dim'], bias=False),
 
             # 8 -> 16
             # nn.BatchNorm1d(num_features=config['data_dim']),
