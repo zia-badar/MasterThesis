@@ -2,7 +2,7 @@ from pickle import dumps, dump
 from time import localtime, mktime
 
 import torch.nn
-from torch import softmax, sigmoid
+from torch import softmax, sigmoid, nn
 from torch.distributions import MultivariateNormal
 from torch.linalg import eig
 from torch.nn import CrossEntropyLoss, BCELoss, BCEWithLogitsLoss
@@ -13,21 +13,33 @@ from torchvision.datasets import CIFAR10
 from torchvision.transforms import ToTensor
 
 from linearity_test_2.analysis import analyse
-from linearity_test_2.models import Discriminator, Encoder
+from linearity_test_2.models import Discriminator, Encoder, Projection
 from linearity_test_2.datasets import ProjectedDataset
 from linearity_test_2.result import training_result
 
 
 def train_encoder(config):
     distribution = MultivariateNormal(loc=torch.zeros(config['encoding_dim']), covariance_matrix=torch.eye(config['encoding_dim']))
-    projection = torch.rand(size=(config['encoding_dim'], config['data_dim']))
-    translation = 5 * torch.rand(size=(config['data_dim'],))
-    # translation = 5 * torch.zeros(size=(config['data_dim'],))
-    train_dataset = ProjectedDataset(True, distribution, projection, translation)
-    validation_dataset = ProjectedDataset(True, distribution, projection, translation)
+    projection = Projection(config)
+
+    train_dataset = ProjectedDataset(True, distribution, projection)
+    validation_dataset = ProjectedDataset(True, distribution, projection)
 
     f = Discriminator(config).cuda()
     e = Encoder(config).cuda()
+
+    def weights_init(m):
+        classname = m.__class__.__name__
+        if classname.find('Conv') != -1:
+            m.weight.data.normal_(0.0, 0.02)
+        elif classname.find('Linear') != -1:
+            m.weight.data.normal_(0.0, 0.02)
+        elif classname.find('BatchNorm') != -1:
+            m.weight.data.normal_(1.0, 0.02)
+            m.bias.data.fill_(0)
+
+    f.apply(weights_init)
+    e.apply(weights_init)
 
     def _next(iter):
         try:
@@ -42,7 +54,7 @@ def train_encoder(config):
     optim_e = SGD(e.parameters(), lr=config['lr'], weight_decay=config['weight_decay'])
     normal_dist = MultivariateNormal(loc=torch.zeros(config['encoding_dim']), covariance_matrix=torch.eye(config['encoding_dim']))
     mean, cov, condition_no = evaluate_encoder(e, train_dataset, validation_dataset, config)
-    result = training_result(projection, translation, config)
+    result = training_result(projection, config)
     result.update(e, mean, cov, condition_no)
     # result_file_name = f'results/result_{(int)(mktime(localtime()))}'
     result_file_name = f'results/result_'

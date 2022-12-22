@@ -188,7 +188,7 @@ def train(config):
     train_dataloader = DataLoader(train_dataset, batch_size=config['batch_size'], shuffle=True, num_workers=20)
 
     # model = efficient_net(config).cuda()
-    model = Model().cuda()
+    model = Model(feature_dim=config['feature_projection_dim']).cuda()
     base_optimizer = SGD(model.parameters(), lr=1e-1, momentum=0.9, weight_decay=1e-6)
     optim = LARS(base_optimizer, eps=1e-8, trust_coef=0.001)
     scheduler = CosineAnnealingLR(optim, config['epochs'])
@@ -219,7 +219,7 @@ def train(config):
                 torch.save(model.state_dict(), 'constrastive_model')
 
 if __name__ == '__main__':
-    config = {'class': -1, 'batch_size': 512, 'feature_projection_dim': 128, 'epochs': 10000}
+    config = {'class': -1, 'batch_size': 512, 'feature_projection_dim': 3, 'epochs': 10000}
 
     config['class'] = 0
     train(config)

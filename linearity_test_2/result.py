@@ -4,18 +4,25 @@ from torch.distributions import MultivariateNormal
 
 
 class training_result:
-    def __init__(self, projection, translation, config):
+    def __init__(self, projection, config):
         self.projection = projection
-        self.translation = translation
         self.config = config
 
         self.min_condition_no_model = None
         self.min_condition_no = maxsize
         self.min_condition_no_distribution = None
 
+    def model_state_dict(model):
+        state_dict = model.state_dict().copy()
+        for k, v in state_dict.items():
+            state_dict[k] = v.detach().cpu()
+        return state_dict
+
     def update(self, model, mean, cov, condition_no):
 
         if condition_no < self.min_condition_no:
             self.min_condition_no = condition_no
-            self.min_condition_no_model = model.state_dict().copy()
+            self.min_condition_no_model = training_result.model_state_dict(model)
             self.min_condition_no_distribution = MultivariateNormal(mean, cov)
+
+        self.latest_model = training_result.model_state_dict(model)

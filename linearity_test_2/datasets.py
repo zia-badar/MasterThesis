@@ -7,17 +7,15 @@ from linearity_test_1.models import classifier
 
 class ProjectedDataset(Dataset):
 
-    def __init__(self, train, distribution, projection, translation):
+    def __init__(self, train, distribution, projection):
         super(ProjectedDataset, self).__init__()
 
-        self.distribution = distribution
-        self.projection = projection
-        self.translation = translation
-
-        if train:
-            self.dataset = self.distribution.sample(sample_shape=(5000,)) @ self.projection + self.translation
-        else:
-            self.dataset = self.distribution.sample(sample_shape=(1500,)) @ self.projection + self.translation
+        projection.eval()
+        with torch.no_grad():
+            if train:
+                self.dataset = projection(distribution.sample(sample_shape=(5000,)))
+            else:
+                self.dataset = projection(distribution.sample(sample_shape=(1500,)))
 
     def __getitem__(self, item):
 

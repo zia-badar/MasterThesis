@@ -18,11 +18,10 @@ def analyse():
     config = result.config
     distribution = MultivariateNormal(loc=torch.zeros(config['encoding_dim']), covariance_matrix=torch.eye(config['encoding_dim']))
     projection = result.projection
-    translation = result.translation
 
     encoding_samples = distribution.sample((1000, ))
     prob = torch.exp(distribution.log_prob(encoding_samples)).numpy()
-    data_samples = encoding_samples @ projection + translation
+    data_samples = projection(encoding_samples)
     data_samples = data_samples.numpy()
 
     cmap = 'Greys'
@@ -39,7 +38,7 @@ def analyse():
 
     ax = fig.add_subplot(1, 2, 2, projection='3d')
     ax.scatter(xs=data_samples[:, 0], ys=data_samples[:, 1], zs=data_samples[:, 2], marker='.', c=prob, cmap='Reds')
-    start, end, step = -5, 5, 0.1
+    start, end, step = -5, 5, 0.05
     x, y, z = torch.arange(start, end, step), torch.arange(start, end, step), torch.arange(start, end, step)
     # x, y, z = torch.arange(2, 4, step), torch.arange(0, 4, step), torch.arange(-6, 3, step)
     grid_x, grid_y, grid_z = torch.meshgrid(x, y, z)
@@ -61,7 +60,7 @@ def analyse():
 
     prob = torch.cat(prob)
 
-    threashold = 0.03
+    threashold = 0.005
     plot_samples = data_samples[prob.cpu() > threashold, :].cpu().numpy()
     plot_prob = prob[prob > threashold].cpu().numpy()
     ax.scatter(xs=plot_samples[:, 0], ys=plot_samples[:, 1], zs=plot_samples[:, 2], marker='.', c=plot_prob)
