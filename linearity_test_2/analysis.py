@@ -52,8 +52,8 @@ def analyse():
             ax.scatter(xs=data_samples[:, 0], ys=data_samples[:, 1], zs=data_samples[:, 2], marker='.', c=prob, cmap='Reds')
 
         start, end, step = -10, 10, 0.1
-        # x, y, z = torch.arange(start, end, step), torch.arange(start, end, step), torch.arange(start, end, step)
-        x, y, z = torch.arange(-4, 8, step), torch.arange(0.5, 5, step), torch.arange(-1, 10, step)
+        x, y, z = torch.arange(start, end, step), torch.arange(start, end, step), torch.arange(start, end, step)
+        # x, y, z = torch.arange(-4, 8, step), torch.arange(0.5, 5, step), torch.arange(-1, 10, step)
         grid_x, grid_y, grid_z = torch.meshgrid(x, y, z)
         encoder = Encoder(result.config)
         encoder.load_state_dict(result.min_condition_no_model)
@@ -118,7 +118,7 @@ def analyse():
     assert torch.max(prob).item() <= 1, 'prob upper bound error'
     assert torch.min(prob).item() >= 0, 'prob lower bound error'
 
-    percentage = 1
+    percentage = 0.2
     sorted_index = torch.argsort(prob, descending=True)
     indexes = sorted_index[:(int)(prob.shape[0] * percentage / 100)]
     plot_prob = prob[indexes].cpu().numpy()

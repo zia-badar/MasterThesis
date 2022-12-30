@@ -24,7 +24,7 @@ class Discriminator(nn.Module):
         scale = 1
         self.d = nn.Sequential(
 
-            nn.Linear(in_features=config['encoding_dim'], out_features=2048),
+            nn.Linear(in_features=config['encoding_dim'], out_features=128),
             AbsActivation(),
 
             # 3 -> 3
@@ -71,13 +71,13 @@ class Encoder(nn.Module):
             # nn.BatchNorm1d(num_features=config['data_dim'] + scale),
             # nn.Linear(in_features=config['data_dim'] + scale, out_features=config['encoding_dim']),
 
-            nn.Linear(in_features=config['data_dim'], out_features=config['data_dim']+1),
-            nn.BatchNorm1d(num_features=config['data_dim']+1),
+            nn.Linear(in_features=config['data_dim'], out_features=config['data_dim']),
+            nn.BatchNorm1d(num_features=config['data_dim']),
             nn.LeakyReLU(0.2, inplace=True),
-            nn.Linear(in_features=config['data_dim']+1, out_features=config['data_dim']+1),
-            nn.BatchNorm1d(num_features=config['data_dim']+1),
+            nn.Linear(in_features=config['data_dim'], out_features=config['data_dim']),
+            nn.BatchNorm1d(num_features=config['data_dim']),
             nn.LeakyReLU(0.2, inplace=True),
-            nn.Linear(in_features=config['data_dim']+1, out_features=config['encoding_dim']),
+            nn.Linear(in_features=config['data_dim'], out_features=config['encoding_dim']),
 
             # 3 -> 3, scale = 1
             # nn.BatchNorm1d(num_features=config['data_dim']),

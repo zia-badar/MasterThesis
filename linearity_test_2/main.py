@@ -131,7 +131,7 @@ if __name__ == '__main__':
     # train_classifier(config)
     # train_binary_classifier(config)
 
-    # for _ in range(100):
-    #     train_encoder(config)
+    for _ in range(20):
+        train_encoder(config)
 
     analyse()
