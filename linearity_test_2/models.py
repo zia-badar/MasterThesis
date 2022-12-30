@@ -75,6 +75,7 @@ class Encoder(nn.Module):
             nn.BatchNorm1d(num_features=config['data_dim']+1),
             nn.LeakyReLU(0.2, inplace=True),
             nn.Linear(in_features=config['data_dim']+1, out_features=config['data_dim']+1),
+            nn.BatchNorm1d(num_features=config['data_dim']+1),
             nn.LeakyReLU(0.2, inplace=True),
             nn.Linear(in_features=config['data_dim']+1, out_features=config['encoding_dim']),
 
