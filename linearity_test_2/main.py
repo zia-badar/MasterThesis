@@ -56,8 +56,8 @@ def train_encoder(config):
     mean, cov, condition_no = evaluate_encoder(e, train_dataset, validation_dataset, config)
     result = training_result(projection, config)
     result.update(e, mean, cov, condition_no)
-    # result_file_name = f'results/result_{(int)(mktime(localtime()))}'
-    result_file_name = f'results/result_'
+    result_file_name = f'results/set/result_{(int)(mktime(localtime()))}'
+    # result_file_name = f'results/result_'
 
     for encoder_iter in range(1, config['encoder_iters']+1):
 
@@ -130,6 +130,8 @@ if __name__ == '__main__':
     config['class'] = 0
     # train_classifier(config)
     # train_binary_classifier(config)
-    # train_encoder(config)
+
+    # for _ in range(100):
+    #     train_encoder(config)
 
     analyse()

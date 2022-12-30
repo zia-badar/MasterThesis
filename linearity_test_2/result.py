@@ -20,7 +20,7 @@ class training_result:
 
     def update(self, model, mean, cov, condition_no):
 
-        if condition_no < self.min_condition_no:
+        if condition_no > 0 and condition_no < self.min_condition_no:
             self.min_condition_no = condition_no
             self.min_condition_no_model = training_result.model_state_dict(model)
             self.min_condition_no_distribution = MultivariateNormal(mean, cov)
