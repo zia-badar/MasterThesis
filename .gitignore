@@ -14,3 +14,4 @@ thesis/model_*
 thesis/best_model_*
 thesis/analysis.csv
 linearity_test_2/results/*
+anamoly_det_test_1/results/*
