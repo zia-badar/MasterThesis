@@ -51,18 +51,18 @@ def analyse():
             ax = fig.add_subplot(1, 2, 2, projection='3d')
             ax.scatter(xs=data_samples[:, 0], ys=data_samples[:, 1], zs=data_samples[:, 2], marker='.', c=prob, cmap='Reds')
 
-        start, end, step = -10, 10, 0.1
+        start, end, step = -10, 10, 0.5
         x, y, z = torch.arange(start, end, step), torch.arange(start, end, step), torch.arange(start, end, step)
         # x, y, z = torch.arange(-4, 8, step), torch.arange(0.5, 5, step), torch.arange(-1, 10, step)
         grid_x, grid_y, grid_z = torch.meshgrid(x, y, z)
         encoder = Encoder(result.config)
-        encoder.load_state_dict(result.min_condition_no_model)
+        encoder.load_state_dict(result.latest_model)
         encoder.eval()
         encoder.cuda()
         data_samples = torch.stack([grid_x, grid_y, grid_z]).reshape(3, -1).t().cuda()
         with torch.no_grad():
             encoding_samples = encoder(data_samples.to(torch.float))
-        distribution = result.min_condition_no_distribution
+        distribution = result.latest_distribution
         prob = []
         batch_size = 512000
         for i in range(batch_size, encoding_samples.shape[0]+1, batch_size):
@@ -77,7 +77,10 @@ def analyse():
         Z = torch.sqrt(torch.pow(torch.tensor([2*torch.pi]).cuda(), d) * det(cov))
         prob = prob * Z
 
-        assert torch.max(prob).item() <= 1.1, f'prob upper bound error, {torch.max(prob).item()}'
+        if torch.any(torch.isnan(prob)).item():
+            continue
+
+        assert torch.max(prob).item() <= 1, f'prob upper bound error, {torch.max(prob).item()}'
         assert torch.min(prob).item() >= 0, 'prob lower bound error'
 
         if prob_sum == None:
@@ -113,12 +116,13 @@ def analyse():
         # plot_prob = prob[prob > threashold].cpu().numpy()
         # ax.scatter(xs=plot_samples[:, 0], ys=plot_samples[:, 1], zs=plot_samples[:, 2], marker='.', c=plot_prob)
 
+    print(f'not_nan: {prob_count}')
     prob = prob_sum / prob_count
 
     assert torch.max(prob).item() <= 1, 'prob upper bound error'
     assert torch.min(prob).item() >= 0, 'prob lower bound error'
 
-    percentage = 0.2
+    percentage = 1
     sorted_index = torch.argsort(prob, descending=True)
     indexes = sorted_index[:(int)(prob.shape[0] * percentage / 100)]
     plot_prob = prob[indexes].cpu().numpy()

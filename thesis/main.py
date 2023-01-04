@@ -31,7 +31,7 @@ def train(config):
     outlier.remove(config['class'])
 
     dataset = CIFAR10(root='../', train=True, download=True)
-    normlization_transforms = transforms.Compose([ToTensor(), Resize((config['height'], config['width'])), Normalize((0.5, 0.5, 0.5), (0.5, 0.5, 0.5))])
+    normlization_transforms = transforms.Compose([ToTensor(), Normalize((0.5, 0.5, 0.5), (0.5, 0.5, 0.5))])
     # normalizate_augmented_transform = transforms.Compose([ToTensor(), Resize((config['height'], config['width'])), RandomPermutationTransform(), Normalize((0.5, 0.5, 0.5), (0.5, 0.5, 0.5))])
 
     inlier_dataset = OneClassDataset(dataset, one_class_labels=inlier, transform=normlization_transforms)
@@ -149,6 +149,9 @@ def train(config):
             if encoder_iter % (4 * 100) == 0:
                 print(f'mean:{torch.norm(mean).item()}\ncov: {cov}\n\n{encoder_iter}\n{training_result}\ncondition_no:{np.round(condition_no, 2)}\nroc:{clean_tensor_str(roc_auc)}'
                       f'\nmean_diff: {torch.norm(mean - previous_mean).item()}')
+
+                with open(f'{config["result_directory"]}/{config["dataset"]}_{config["class"]}_{config["instance"]}', 'wb') as file:
+                    pickle.dump(training_result, file, protocol=pickle.HIGHEST_PROTOCOL)
             previous_mean = mean
 
 
@@ -216,9 +219,9 @@ class NoDaemonProcessPool(multiprocessing.pool.Pool):
         return proc
 
 if __name__ == '__main__':
-    result_directory = f'model_cifar_20/run_28'
+    result_directory = f'model_cifar_20/run_35'
 
-    config = {'height': 64, 'width': 64, 'batch_size': 64, 'n_critic': 5, 'clip': 1e-2, 'learning_rate': 5e-5, 'encoder_iters': (int)(10000), 'z_dim': 20, 'dataset': 'cifar', 'var_scale': 1, 'result_directory': result_directory}
+    config = {'height': 64, 'width': 64, 'batch_size': 64, 'n_critic': 5, 'clip': 1e-2, 'learning_rate': 5e-5, 'encoder_iters': (int)(10000), 'z_dim': 64, 'dataset': 'cifar', 'var_scale': 1, 'result_directory': result_directory}
 
     _class = (int)(sys.argv[1])
     _instance = (int)(sys.argv[2])

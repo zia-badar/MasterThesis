@@ -1,5 +1,5 @@
 from pickle import dumps, dump
-from time import localtime, mktime
+from time import localtime, mktime, sleep
 
 import torch.nn
 from torch import softmax, sigmoid, nn
@@ -99,8 +99,8 @@ def train_encoder(config):
             result.update(e, mean, cov, condition_no)
             print(f'iter: {encoder_iter}, mean: {torch.norm(mean).item() : .4f}, condition_no: {condition_no.item(): .4f}')
 
-            with open(result_file_name, 'wb') as file:
-                dump(result, file)
+    with open(result_file_name, 'wb') as file:
+        dump(result, file)
 
 def evaluate_encoder(encoder, train_dataset, validation_dataset, config):
     encoder.eval()
@@ -125,7 +125,7 @@ def evaluate_encoder(encoder, train_dataset, validation_dataset, config):
     return mean, cov, condition_no
 
 if __name__ == '__main__':
-    config = {'batch_size': 64, 'epochs': 200, 'data_dim': 3, 'encoding_dim': 3, 'encoder_iters': 10000, 'discriminator_n': 4, 'lr': 1e-3, 'weight_decay': 1e-5, 'clip': 1e-2}
+    config = {'batch_size': 64, 'epochs': 200, 'data_dim': 3, 'encoding_dim': 3, 'encoder_iters': 100, 'discriminator_n': 4, 'lr': 1e-3, 'weight_decay': 1e-5, 'clip': 1e-2}
 
     config['class'] = 0
     # train_classifier(config)

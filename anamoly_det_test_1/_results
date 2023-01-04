@@ -79,3 +79,147 @@ roc_score: 0.9227742322623301
 roc_score: 0.9232766729751604
 not_nan: 200
 class: 9, roc_score: 0.9232030833831748, not_nan: 200
+
+
+Files already downloaded and verified
+Files already downloaded and verified
+Files already downloaded and verified
+Files already downloaded and verified
+Files already downloaded and verified
+Files already downloaded and verified
+Files already downloaded and verified
+Files already downloaded and verified
+Files already downloaded and verified
+Files already downloaded and verified
+Files already downloaded and verified
+roc_score: 0.6478084888888889
+not_nan: 10
+class: 0, roc_score: 0.6455215111111111, not_nan: 10
+Files already downloaded and verified
+Files already downloaded and verified
+Files already downloaded and verified
+Files already downloaded and verified
+Files already downloaded and verified
+Files already downloaded and verified
+Files already downloaded and verified
+Files already downloaded and verified
+Files already downloaded and verified
+Files already downloaded and verified
+Files already downloaded and verified
+roc_score: 0.41674202222222223
+not_nan: 10
+class: 1, roc_score: 0.41091795555555555, not_nan: 10
+Files already downloaded and verified
+Files already downloaded and verified
+Files already downloaded and verified
+Files already downloaded and verified
+Files already downloaded and verified
+Files already downloaded and verified
+Files already downloaded and verified
+Files already downloaded and verified
+Files already downloaded and verified
+Files already downloaded and verified
+Files already downloaded and verified
+roc_score: 0.6638888296296296
+not_nan: 10
+class: 2, roc_score: 0.6719417777777777, not_nan: 10
+Files already downloaded and verified
+Files already downloaded and verified
+Files already downloaded and verified
+Files already downloaded and verified
+Files already downloaded and verified
+Files already downloaded and verified
+Files already downloaded and verified
+Files already downloaded and verified
+Files already downloaded and verified
+Files already downloaded and verified
+Files already downloaded and verified
+roc_score: 0.5000531703703703
+not_nan: 10
+class: 3, roc_score: 0.5003018222222223, not_nan: 10
+Files already downloaded and verified
+Files already downloaded and verified
+Files already downloaded and verified
+Files already downloaded and verified
+Files already downloaded and verified
+Files already downloaded and verified
+Files already downloaded and verified
+Files already downloaded and verified
+Files already downloaded and verified
+Files already downloaded and verified
+Files already downloaded and verified
+roc_score: 0.7201046740740741
+not_nan: 10
+class: 4, roc_score: 0.7268060296296297, not_nan: 10
+Files already downloaded and verified
+Files already downloaded and verified
+Files already downloaded and verified
+Files already downloaded and verified
+Files already downloaded and verified
+Files already downloaded and verified
+Files already downloaded and verified
+Files already downloaded and verified
+Files already downloaded and verified
+Files already downloaded and verified
+Files already downloaded and verified
+roc_score: 0.5208056444444444
+not_nan: 10
+class: 5, roc_score: 0.521360474074074, not_nan: 10
+Files already downloaded and verified
+Files already downloaded and verified
+Files already downloaded and verified
+Files already downloaded and verified
+Files already downloaded and verified
+Files already downloaded and verified
+Files already downloaded and verified
+Files already downloaded and verified
+Files already downloaded and verified
+Files already downloaded and verified
+Files already downloaded and verified
+roc_score: 0.6856480888888888
+not_nan: 10
+class: 6, roc_score: 0.7129096444444444, not_nan: 10
+Files already downloaded and verified
+Files already downloaded and verified
+Files already downloaded and verified
+Files already downloaded and verified
+Files already downloaded and verified
+Files already downloaded and verified
+Files already downloaded and verified
+Files already downloaded and verified
+Files already downloaded and verified
+Files already downloaded and verified
+Files already downloaded and verified
+roc_score: 0.5185344222222222
+not_nan: 10
+class: 7, roc_score: 0.5256264740740741, not_nan: 10
+Files already downloaded and verified
+Files already downloaded and verified
+Files already downloaded and verified
+Files already downloaded and verified
+Files already downloaded and verified
+Files already downloaded and verified
+Files already downloaded and verified
+Files already downloaded and verified
+Files already downloaded and verified
+Files already downloaded and verified
+Files already downloaded and verified
+roc_score: 0.6695815555555555
+not_nan: 10
+class: 8, roc_score: 0.6845793925925926, not_nan: 10
+Files already downloaded and verified
+Files already downloaded and verified
+Files already downloaded and verified
+Files already downloaded and verified
+Files already downloaded and verified
+Files already downloaded and verified
+Files already downloaded and verified
+Files already downloaded and verified
+Files already downloaded and verified
+Files already downloaded and verified
+Files already downloaded and verified
+roc_score: 0.4852586
+not_nan: 10
+class: 9, roc_score: 0.47374831111111104, not_nan: 10
+
+Process finished with exit code 0

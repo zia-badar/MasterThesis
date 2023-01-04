@@ -12,6 +12,8 @@ class training_result:
         self.min_condition_no = maxsize
         self.min_condition_no_distribution = None
 
+        self.latest_distribution = None
+
     def model_state_dict(model):
         state_dict = model.state_dict().copy()
         for k, v in state_dict.items():
@@ -26,3 +28,4 @@ class training_result:
             self.min_condition_no_distribution = MultivariateNormal(mean, cov)
 
         self.latest_model = training_result.model_state_dict(model)
+        self.latest_distribution = MultivariateNormal(mean, cov)

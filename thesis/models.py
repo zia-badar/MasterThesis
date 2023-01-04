@@ -1,5 +1,5 @@
 import torch
-from torch import nn, Tensor
+from torch import nn, Tensor, tanh
 from torch.nn import ConvTranspose2d, BatchNorm2d, ReLU, Tanh, Conv2d, LeakyReLU, BatchNorm1d
 
 from resnet_modified import ResNet, BasicBlock
@@ -14,16 +14,16 @@ class Discriminator(nn.Module):
             nn.Linear(in_features=config['z_dim'], out_features=config['z_dim'] * (2)),
             # BatchNorm1d(num_features=16),
             # Tanh(),
-            LeakyReLU(0.2, inplace=True),
+            # LeakyReLU(0.2, inplace=True),
+            # AbsTanh(),
+            ReLU(inplace=True),
             nn.Linear(in_features=config['z_dim'] * (2), out_features=config['z_dim'] * (2**2)),
             BatchNorm1d(num_features=config['z_dim'] * (2**2)),
             # Tanh(),
-            LeakyReLU(0.2, inplace=True),
-            nn.Linear(in_features=config['z_dim'] * (2**2), out_features=config['z_dim'] * (2**3)),
-            BatchNorm1d(num_features=config['z_dim'] * (2**3)),
-            # Tanh(),
-            LeakyReLU(0.2, inplace=True),
-            nn.Linear(in_features=config['z_dim'] * (2**3), out_features=1)
+            # LeakyReLU(0.2, inplace=True),
+            # AbsTanh(),
+            ReLU(inplace=True),
+            nn.Linear(in_features=config['z_dim'] * (2**2), out_features=1)
         )
 
 
@@ -42,10 +42,7 @@ class Encoder(nn.Module):
 
         # https://pytorch.org/tutorials/beginner/dcgan_faces_tutorial.html, https://arxiv.org/pdf/1511.06434.pdf
         self.e = nn.Sequential(
-            Conv2d(in_channels=channels, out_channels=128, kernel_size=4, stride=2, padding=1, bias=False),
-            BatchNorm2d(num_features=128),
-            LeakyReLU(0.2, inplace=True),
-            Conv2d(in_channels=128, out_channels=256, kernel_size=4, stride=2, padding=1, bias=False),
+            Conv2d(in_channels=channels, out_channels=256, kernel_size=4, stride=2, padding=1, bias=False),
             BatchNorm2d(num_features=256),
             LeakyReLU(0.2, inplace=True),
             Conv2d(in_channels=256, out_channels=512, kernel_size=4, stride=2, padding=1, bias=False),
@@ -55,9 +52,7 @@ class Encoder(nn.Module):
             BatchNorm2d(num_features=1024),
             LeakyReLU(0.2, inplace=True),
             Conv2d(in_channels=1024, out_channels=config['z_dim'], kernel_size=4, bias=False),
-            Tanh()
         )
-
 
     def forward(self, x):
         x = self.e(x)

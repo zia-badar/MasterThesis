@@ -72,7 +72,7 @@ def analyse(config):
 
         cov = distribution.covariance_matrix
         d = cov.shape[0]
-        Z = torch.sqrt(torch.pow(torch.tensor([2*torch.pi]).cuda(), d) * det(cov))
+        Z = torch.sqrt(torch.pow(torch.tensor([2*torch.pi], dtype=torch.float64).cuda(), d) * det(cov)).type(torch.float32)
         prob = prob * Z
 
         if torch.any(torch.isnan(prob)).item():
