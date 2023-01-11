@@ -89,8 +89,18 @@ class Model(nn.Module):
         # encoder
         self.f = nn.Sequential(*self.f)
         # projection head
-        self.g = nn.Sequential(nn.Linear(512, 512, bias=False), nn.BatchNorm1d(512),
-                               nn.ReLU(inplace=True), nn.Linear(512, feature_dim, bias=True))
+        # self.g = nn.Sequential(
+        #                        nn.Linear(512, 512, bias=False),
+        #                        nn.BatchNorm1d(512),
+        #                        nn.ReLU(inplace=True),
+        #                        nn.Linear(512, feature_dim),
+        #                        )
+
+        layers = []
+        for _ in range(8):
+            layers += [nn.Linear(512, 512, bias=False), nn.BatchNorm1d(512), nn.ReLU(inplace=True)]
+        layers.append(nn.Linear(512, 128))
+        self.g = nn.Sequential(*layers)
 
     def forward(self, x):
         x = self.f(x)
@@ -185,6 +195,7 @@ def train(config):
     without_pair_train_dataset = AugmentedDataset(train_dataset, pair=False)
 
     train_dataset = AugmentedDataset(train_dataset)
+    # train_dataset = AugmentedDataset(train_dataset, aug=True)
     train_dataloader = DataLoader(train_dataset, batch_size=config['batch_size'], shuffle=True, num_workers=20)
 
     # model = efficient_net(config).cuda()
@@ -216,10 +227,10 @@ def train(config):
         if epoch % 50 == 0:
             print(f'roc: {evaluated(model, without_pair_train_dataset, validation_dataset, config)}')
             if epoch % 100 == 0:
-                torch.save(model.state_dict(), 'constrastive_model')
+                torch.save(model.state_dict(), 'constrastive_model_512_128_8_layers_with_aug')
 
 if __name__ == '__main__':
-    config = {'class': -1, 'batch_size': 512, 'feature_projection_dim': 3, 'epochs': 10000}
+    config = {'class': -1, 'batch_size': 512, 'feature_projection_dim': 128, 'epochs': 1000}
 
-    config['class'] = 0
+    config['class'] = 1
     train(config)

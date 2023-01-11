@@ -1,6 +1,9 @@
+import torchvision.transforms.functional
 from torch.utils.data import Dataset
 from torchvision import transforms
 from torchvision.transforms import ToTensor
+
+from thesis.dataset import Random90RotationTransform
 
 
 class OneClassDataset(Dataset):
@@ -30,10 +33,12 @@ class OneClassDataset(Dataset):
         return len(self.filtered_indexes)
 
 class AugmentedDataset(Dataset):
+    # def __init__(self, dataset, pair=True, aug=False):
     def __init__(self, dataset, pair=True):
         self.dataset = dataset
         # self.augmentation = Random90RotationTransform()
         self.pair = pair
+        # self.aug = aug
 
         self.augmentation = transforms.Compose([
             transforms.RandomResizedCrop(32),
@@ -43,6 +48,12 @@ class AugmentedDataset(Dataset):
 
     def __getitem__(self, item):
         x, l = self.dataset[item]
+        # x, l = self.dataset[(int)(item/(4 if self.aug else 1))]
+        #
+        # if self.aug:
+        #     rotation_angle = 90 * (item % 4)
+        #     if rotation_angle != 0:
+        #         x = torchvision.transforms.functional.rotate(x, angle=rotation_angle)
 
         if self.pair:
             x_aug = self.augmentation(x)
@@ -56,3 +67,4 @@ class AugmentedDataset(Dataset):
 
     def __len__(self):
         return len(self.dataset)
+        # return len(self.dataset) * (4 if self.aug else 1)

@@ -4,10 +4,7 @@ from torch.distributions import MultivariateNormal
 
 
 class training_result:
-    def __init__(self, projection, config):
-        self.projection = projection
-        self.config = config
-
+    def __init__(self):
         self.min_condition_no_model = None
         self.min_condition_no = maxsize
         self.min_condition_no_distribution = None
@@ -29,3 +26,4 @@ class training_result:
 
         self.latest_model = training_result.model_state_dict(model)
         self.latest_distribution = MultivariateNormal(mean, cov)
+        self.latest_condition_no = condition_no

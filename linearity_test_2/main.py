@@ -1,3 +1,4 @@
+from os import mkdir
 from pickle import dumps, dump
 from time import localtime, mktime, sleep
 
@@ -53,10 +54,10 @@ def train_encoder(config):
     optim_f = SGD(f.parameters(), lr=config['lr'], weight_decay=config['weight_decay'])
     optim_e = SGD(e.parameters(), lr=config['lr'], weight_decay=config['weight_decay'])
     normal_dist = MultivariateNormal(loc=torch.zeros(config['encoding_dim']), covariance_matrix=torch.eye(config['encoding_dim']))
-    mean, cov, condition_no = evaluate_encoder(e, train_dataset, validation_dataset, config)
+    # mean, cov, condition_no = evaluate_encoder(e, train_dataset, validation_dataset, config)
     result = training_result(projection, config)
-    result.update(e, mean, cov, condition_no)
-    result_file_name = f'results/set/result_{(int)(mktime(localtime()))}'
+    # result.update(e, mean, cov, condition_no)
+    result_file_name = f'{config["result_folder"]}/result_{(int)(mktime(localtime()))}'
     # result_file_name = f'results/result_'
 
     for encoder_iter in range(1, config['encoder_iters']+1):
@@ -125,13 +126,15 @@ def evaluate_encoder(encoder, train_dataset, validation_dataset, config):
     return mean, cov, condition_no
 
 if __name__ == '__main__':
-    config = {'batch_size': 64, 'epochs': 200, 'data_dim': 3, 'encoding_dim': 3, 'encoder_iters': 100, 'discriminator_n': 4, 'lr': 1e-3, 'weight_decay': 1e-5, 'clip': 1e-2}
+    _class = 1
+    config = {'batch_size': 64, 'epochs': 200, 'data_dim': 3, 'encoding_dim': 3, 'encoder_iters': 1000, 'discriminator_n': 4, 'lr': 1e-3, 'weight_decay': 1e-5, 'clip': 1e-2, 'result_folder': f'results/set_{(int)(mktime(localtime()))}_{_class}/'}
 
-    config['class'] = 0
+    config['class'] = 1
+    mkdir(config['result_folder'])
     # train_classifier(config)
     # train_binary_classifier(config)
 
-    for _ in range(20):
+    for _ in range(10):
         train_encoder(config)
 
-    analyse()
+    analyse(config)

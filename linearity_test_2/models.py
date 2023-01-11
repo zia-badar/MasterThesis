@@ -2,16 +2,17 @@ from pickle import load
 
 import torch
 from torch import nn
-from torch.nn import Flatten, Conv2d, BatchNorm2d
+from torch.nn import Flatten, Conv2d, BatchNorm2d, ReLU, BatchNorm1d
+from torch.nn.functional import normalize
 from torchvision.models import resnet18
 
 class AbsActivation(nn.Module):
 
-    def __init__(self):
+    def __init__(self, base = 0.001, slope = 0.001):
         super(AbsActivation, self).__init__()
 
-        self.base = 0.001
-        self.slope = 0.001
+        self.base = base
+        self.slope = slope
 
     def forward(self, x):
         ret = self.base + torch.abs(x) * self.slope
@@ -24,8 +25,15 @@ class Discriminator(nn.Module):
         scale = 1
         self.d = nn.Sequential(
 
-            nn.Linear(in_features=config['encoding_dim'], out_features=128),
-            AbsActivation(),
+            nn.Linear(in_features=config['encoding_dim'], out_features=config['encoding_dim'] * (2)),
+            ReLU(inplace=True),
+            nn.Linear(in_features=config['encoding_dim'] * (2), out_features=config['encoding_dim'] * (2 ** 2)),
+            BatchNorm1d(num_features=config['encoding_dim'] * (2 ** 2)),
+            ReLU(inplace=True),
+            nn.Linear(in_features=config['encoding_dim'] * (2 ** 2), out_features=1)
+
+            # nn.Linear(in_features=config['encoding_dim'], out_features=128),
+            # AbsActivation(),
 
             # 3 -> 3
             # nn.Linear(in_features=config['encoding_dim'], out_features=scale*config['data_dim']),
@@ -73,10 +81,16 @@ class Encoder(nn.Module):
 
             nn.Linear(in_features=config['data_dim'], out_features=config['data_dim']),
             nn.BatchNorm1d(num_features=config['data_dim']),
-            nn.LeakyReLU(0.2, inplace=True),
+            AbsActivation(slope=1),
+            # nn.LeakyReLU(0.2, inplace=True),
             nn.Linear(in_features=config['data_dim'], out_features=config['data_dim']),
             nn.BatchNorm1d(num_features=config['data_dim']),
-            nn.LeakyReLU(0.2, inplace=True),
+            AbsActivation(slope=1),
+            # nn.LeakyReLU(0.2, inplace=True),
+            nn.Linear(in_features=config['data_dim'], out_features=config['data_dim']),
+            nn.BatchNorm1d(num_features=config['data_dim']),
+            AbsActivation(slope=1),
+            # nn.LeakyReLU(0.2, inplace=True),
             nn.Linear(in_features=config['data_dim'], out_features=config['encoding_dim']),
 
             # 3 -> 3, scale = 1
@@ -121,7 +135,7 @@ class Projection(nn.Module):
         self.projection_2 = torch.tensor([[0.9458, 0.2717, 0.7411], [0.5602, 0.7715, 0.1062], [0.4664, 0.5055, 0.6179]])
         self.translation_1 = torch.tensor([-2.6553,  2.4304,  8.3437])
         self.translation_2 = torch.tensor([5.3460, 2.8367, 1.0990])
-        #
+
         # with open('results/result_non_l', 'rb') as file:
         #     result = load(file)
         #
@@ -132,6 +146,9 @@ class Projection(nn.Module):
         #     nn.Linear(in_features=config['data_dim'], out_features=config['data_dim']),
         #     nn.LeakyReLU(0.2, inplace=True),
         # )
+
+        self.low = 0.8
+        self.high = 1.0
 
     def forward(self, x):
         projections = torch.empty((x.shape[0], ) + self.projection_1.shape)
@@ -145,3 +162,7 @@ class Projection(nn.Module):
         #
         # with torch.no_grad():
         #     return self.projection(x)
+
+        # x = normalize(x, dim=1)
+        # x = self.translation_1 + (x * ((self.high - self.low) * torch.rand(x.shape) + self.low))
+        # return x

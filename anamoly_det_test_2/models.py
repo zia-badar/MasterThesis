@@ -2,16 +2,50 @@ from pickle import load
 
 import torch
 from torch import nn
-from torch.nn import Flatten, Conv2d, BatchNorm2d
+from torch.nn import ReLU, BatchNorm1d
 from torchvision.models import resnet18
+
+
+class Model(nn.Module):
+    def __init__(self, feature_dim=128):
+        super(Model, self).__init__()
+
+        self.f = []
+        for name, module in resnet18().named_children():
+            if name == 'conv1':
+                module = nn.Conv2d(3, 64, kernel_size=3, stride=1, padding=1, bias=False)
+            if not isinstance(module, nn.Linear) and not isinstance(module, nn.MaxPool2d):
+                self.f.append(module)
+        # encoder
+        self.f = nn.Sequential(*self.f)
+        # projection head
+        # self.g = nn.Sequential(
+        #                        nn.Linear(512, 512, bias=False),
+        #                        nn.BatchNorm1d(512),
+        #                        nn.ReLU(inplace=True),
+        #                        nn.Linear(512, feature_dim),
+        #                        )
+
+        layers = []
+        for _ in range(8):
+            layers += [nn.Linear(512, 512, bias=False), nn.BatchNorm1d(512), nn.ReLU(inplace=True)]
+        layers.append(nn.Linear(512, 128))
+        self.g = nn.Sequential(*layers)
+
+    def forward(self, x):
+        x = self.f(x)
+        feature = torch.flatten(x, start_dim=1)
+        out = self.g(feature)
+        return feature, out
+
 
 class AbsActivation(nn.Module):
 
-    def __init__(self):
+    def __init__(self, base=0.001, slope=0.001):
         super(AbsActivation, self).__init__()
 
-        self.base = 0.001
-        self.slope = 0.001
+        self.base = base
+        self.slope = slope
 
     def forward(self, x):
         ret = self.base + torch.abs(x) * self.slope
@@ -24,38 +58,19 @@ class Discriminator(nn.Module):
         scale = 1
         self.d = nn.Sequential(
 
-            nn.Linear(in_features=config['encoding_dim'], out_features=128),
-            AbsActivation(),
+            nn.Linear(in_features=config['encoding_dim'], out_features=config['encoding_dim']),
+            ReLU(inplace=True),
+            nn.Linear(in_features=config['encoding_dim'], out_features=config['encoding_dim']),
+            BatchNorm1d(num_features=config['encoding_dim']),
+            ReLU(inplace=True),
+            nn.Linear(in_features=config['encoding_dim'], out_features=config['encoding_dim']),
+            BatchNorm1d(num_features=config['encoding_dim']),
+            ReLU(inplace=True),
+            nn.Linear(in_features=config['encoding_dim'], out_features=1)
 
-            # 3 -> 3
-            # nn.Linear(in_features=config['encoding_dim'], out_features=scale*config['data_dim']),
-            # nn.ReLU(inplace=True),
-            # nn.Linear(in_features=scale*config['data_dim'], out_features=scale*config['data_dim'], bias=False),
-            # nn.BatchNorm1d(num_features=scale*config['data_dim']),
-            # nn.ReLU(inplace=True),
-            # nn.Linear(in_features=scale*config['data_dim'], out_features=1)
-
-            # 2 -> 3, scale=2
-            # nn.Linear(in_features=config['encoding_dim'], out_features=scale*config['data_dim']),
-            # nn.ReLU(inplace=True),
-            # nn.Linear(in_features=scale*config['data_dim'], out_features=scale*config['data_dim'], bias=False),
-            # nn.BatchNorm1d(num_features=scale*config['data_dim']),
-            # nn.ReLU(inplace=True),
-            # nn.Linear(in_features=scale*config['data_dim'], out_features=1)
-
-            # 8 -> 16, scale=4
-            # nn.Linear(in_features=config['encoding_dim'], out_features=scale*config['data_dim']),
-            # nn.ReLU(inplace=True),
-            # nn.Linear(in_features=scale*config['data_dim'], out_features=scale*config['data_dim'], bias=False),
-            # nn.BatchNorm1d(num_features=scale*config['data_dim']),
-            # nn.ReLU(inplace=True),
-            # nn.Linear(in_features=scale*config['data_dim'], out_features=1)
         )
-        # self.b = torch.nn.Parameter(torch.tensor([0.]))
 
     def forward(self, x):
-        # return torch.abs(self.d(x)) + self.b
-
         return torch.sum(self.d(x), dim=-1)
 
 
@@ -63,46 +78,18 @@ class Encoder(nn.Module):
     def __init__(self, config):
         super(Encoder, self).__init__()
 
-        self.e = nn.Sequential(
+        layers = []
+        for _ in range(3):
+            layers += [
+                nn.Linear(in_features=config['data_dim'], out_features=config['data_dim']),
+                nn.BatchNorm1d(num_features=config['data_dim']),
+        #         AbsActivation(slope=1),
+                nn.LeakyReLU(0.2, inplace=True)
+            ]
 
-            # nn.Linear(in_features=config['data_dim'], out_features=config['data_dim'] + scale, bias=False),
-            # nn.BatchNorm1d(num_features=config['data_dim'] + scale),
-            # nn.Linear(in_features=config['data_dim'] + scale, out_features=config['data_dim'] + scale, bias=False),
-            # nn.BatchNorm1d(num_features=config['data_dim'] + scale),
-            # nn.Linear(in_features=config['data_dim'] + scale, out_features=config['encoding_dim']),
+        layers.append(nn.Linear(in_features=config['data_dim'], out_features=config['encoding_dim']))
 
-            nn.Linear(in_features=config['data_dim'], out_features=config['data_dim']),
-            nn.BatchNorm1d(num_features=config['data_dim']),
-            nn.LeakyReLU(0.2, inplace=True),
-            nn.Linear(in_features=config['data_dim'], out_features=config['data_dim']),
-            nn.BatchNorm1d(num_features=config['data_dim']),
-            nn.LeakyReLU(0.2, inplace=True),
-            nn.Linear(in_features=config['data_dim'], out_features=config['encoding_dim']),
-
-            # 3 -> 3, scale = 1
-            # nn.BatchNorm1d(num_features=config['data_dim']),
-            # nn.Linear(in_features=config['data_dim'], out_features=config['data_dim']),
-            # nn.BatchNorm1d(num_features=config['data_dim']),
-            # nn.Linear(in_features=config['data_dim'], out_features=config['encoding_dim']),
-
-            # 2 -> 3
-            # nn.BatchNorm1d(num_features=config['data_dim']),
-            # nn.Linear(in_features=config['data_dim'], out_features=config['data_dim'], bias=False),
-            # nn.BatchNorm1d(num_features=config['data_dim']),
-            # nn.LeakyReLU(0.2, inplace=True),
-            # nn.Linear(in_features=config['data_dim'], out_features=config['encoding_dim']),
-
-            # nn.BatchNorm1d(num_features=config['data_dim']),
-            # nn.Linear(in_features=config['data_dim'], out_features=config['encoding_dim'], bias=False),
-
-            # 8 -> 16
-            # nn.BatchNorm1d(num_features=config['data_dim']),
-            # nn.Linear(in_features=config['data_dim'], out_features=config['data_dim'], bias=False),
-            # nn.BatchNorm1d(num_features=config['data_dim']),
-            # nn.LeakyReLU(0.2, inplace=True),
-            # nn.Linear(in_features=config['data_dim'], out_features=config['encoding_dim']),
-        )
-
+        self.e = nn.Sequential(*layers)
 
     def forward(self, x):
         return self.e(x)
