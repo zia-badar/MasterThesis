@@ -25,12 +25,15 @@ class Discriminator(nn.Module):
         scale = 1
         self.d = nn.Sequential(
 
-            nn.Linear(in_features=config['encoding_dim'], out_features=config['encoding_dim'] * (2)),
+            nn.Linear(in_features=config['encoding_dim'], out_features=config['encoding_dim']),
             ReLU(inplace=True),
-            nn.Linear(in_features=config['encoding_dim'] * (2), out_features=config['encoding_dim'] * (2 ** 2)),
-            BatchNorm1d(num_features=config['encoding_dim'] * (2 ** 2)),
+            nn.Linear(in_features=config['encoding_dim'], out_features=config['encoding_dim']),
+            BatchNorm1d(num_features=config['encoding_dim']),
             ReLU(inplace=True),
-            nn.Linear(in_features=config['encoding_dim'] * (2 ** 2), out_features=1)
+            nn.Linear(in_features=config['encoding_dim'], out_features=config['encoding_dim']),
+            BatchNorm1d(num_features=config['encoding_dim']),
+            ReLU(inplace=True),
+            nn.Linear(in_features=config['encoding_dim'], out_features=1)
 
             # nn.Linear(in_features=config['encoding_dim'], out_features=128),
             # AbsActivation(),
@@ -81,16 +84,10 @@ class Encoder(nn.Module):
 
             nn.Linear(in_features=config['data_dim'], out_features=config['data_dim']),
             nn.BatchNorm1d(num_features=config['data_dim']),
-            AbsActivation(slope=1),
-            # nn.LeakyReLU(0.2, inplace=True),
+            nn.LeakyReLU(0.2, inplace=True),
             nn.Linear(in_features=config['data_dim'], out_features=config['data_dim']),
             nn.BatchNorm1d(num_features=config['data_dim']),
-            AbsActivation(slope=1),
-            # nn.LeakyReLU(0.2, inplace=True),
-            nn.Linear(in_features=config['data_dim'], out_features=config['data_dim']),
-            nn.BatchNorm1d(num_features=config['data_dim']),
-            AbsActivation(slope=1),
-            # nn.LeakyReLU(0.2, inplace=True),
+            nn.LeakyReLU(0.2, inplace=True),
             nn.Linear(in_features=config['data_dim'], out_features=config['encoding_dim']),
 
             # 3 -> 3, scale = 1
@@ -136,6 +133,9 @@ class Projection(nn.Module):
         self.translation_1 = torch.tensor([-2.6553,  2.4304,  8.3437])
         self.translation_2 = torch.tensor([5.3460, 2.8367, 1.0990])
 
+        # self.projection_1 = torch.tensor([[0.8560, 0.3906, 0.7770], [0.1772, 0.2052, 0.4125]])
+        # self.translation_1 = torch.tensor([-2.6553,  2.4304,  8.3437])
+
         # with open('results/result_non_l', 'rb') as file:
         #     result = load(file)
         #
@@ -159,6 +159,8 @@ class Projection(nn.Module):
         projections[seed] = self.projection_1
         projections[torch.logical_not(seed)] = self.projection_2
         return torch.squeeze(x[:, None, :] @ projections) + translations
+
+        # return torch.squeeze(x[:, None, :] @ self.projection_1) + self.translation_1
         #
         # with torch.no_grad():
         #     return self.projection(x)

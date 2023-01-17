@@ -12,7 +12,7 @@ from torch.nn.functional import normalize
 from torch.utils.data import Subset, ConcatDataset, DataLoader
 from torchvision.datasets import CIFAR10
 
-from anamoly_det_test_2.datasets import OneClassDataset, AugmentedDataset
+from anamoly_det_test_2.datasets import OneClassDataset, AugmentedDataset, EmbeddedDataset
 from anamoly_det_test_2.models import Encoder, Model
 
 
@@ -39,9 +39,12 @@ def analyse(config):
 
     # model = efficient_net(config).cuda()
     model = Model(3).cuda()
-    model.load_state_dict(torch.load('../constrastive_model_512_128_8_layers_without_aug'))
+    model.load_state_dict(torch.load(f'../simclr_ad/results/constrastive_model_with_aug_{config["class"]}'))
     model.cuda()
     model.eval()
+
+    without_pair_train_dataset = EmbeddedDataset(without_pair_train_dataset, model)
+    validation_dataset = EmbeddedDataset(validation_dataset, model)
 
     # training_dataloader = DataLoader(without_pair_train_dataset, batch_size=config['batch_size'], shuffle=True, num_workers=config['num_workers'])
     validation_dataloader = DataLoader(validation_dataset, batch_size=config['batch_size'], num_workers=config['num_workers'])
@@ -49,7 +52,7 @@ def analyse(config):
     # train_x = []
     # with torch.no_grad():
     #     for x, l in training_dataloader:
-    #         x, _ = model(x.cuda())
+    #         x = x.cuda()
     #         train_x.append(normalize(x, dim=1))
     #         # train_x.append(x)
     # train_x = torch.cat(train_x)
@@ -61,7 +64,7 @@ def analyse(config):
     # labels = []
     # with torch.no_grad():
     #     for x, l in validation_dataloader:
-    #         x, _ = model(x.cuda())
+    #         x = x.cuda()
     #         val_x.append(normalize(x, dim=1))
     #         # val_x.append(x)
     #         labels.append(l)
@@ -69,8 +72,8 @@ def analyse(config):
     # labels = torch.cat(labels).cpu().numpy()
     #
     # score = svm.score_samples(val_x)
-    # print(f'roc: {roc_auc_score(labels, score)}')
-    # exit()
+    # print(f'class {config["class"]}: roc: {roc_auc_score(labels, score)}')
+    # return
 
     datasets = [validation_inlier_dataset, outlier_dataset]
     colors = ['#000000', '#00FFFF']
@@ -133,7 +136,7 @@ def analyse(config):
         labels = []
         with torch.no_grad():
             for x, l in validation_dataloader:
-                x, _ = model(x.cuda())
+                x = x.cuda()
                 data_samples.append(x)
                 labels.append(l)
         data_samples = torch.cat(data_samples)
@@ -163,8 +166,8 @@ def analyse(config):
         eig_val = torch.real(torch.linalg.eig(cov)[0]).to(torch.float64)
         d = cov.shape[0]
         # Z = torch.sqrt(torch.pow(torch.tensor([2*torch.pi], dtype=torch.float64).cuda(), d) * det(cov))
-        # Z = np.sqrt((np.power(np.float128(2*np.pi), d) * np.prod(np.float128(eig_val.cpu().numpy()))))
-        Z = np.sqrt((np.power(np.float128(2*np.pi), d) * np.prod(np.float128(eig_val.cpu().numpy()[:256])))) * np.sqrt(np.prod(np.float128(eig_val.cpu().numpy()[256:])))
+        Z = np.sqrt((np.power(np.float128(2*np.pi), d) * np.prod(np.float128(eig_val.cpu().numpy()))))
+        # Z = np.sqrt((np.power(np.float128(2*np.pi), d) * np.prod(np.float128(eig_val.cpu().numpy()[:256])))) * np.sqrt(np.prod(np.float128(eig_val.cpu().numpy()[256:])))
         prob = prob * Z
         prob = torch.tensor(np.float64(prob))
 
@@ -214,8 +217,8 @@ def analyse(config):
     assert torch.max(prob).item() <= 1, 'prob upper bound error'
     assert torch.min(prob).item() >= 0, 'prob lower bound error'
 
-    print(f'roc: {roc_auc_score(labels, prob.cpu().numpy())}')
-    exit()
+    print(f'class {config["class"]}: roc: {roc_auc_score(labels, prob.cpu().numpy())}')
+    return
     percentage = 100
     sorted_index = torch.argsort(prob, descending=True)
     indexes = sorted_index[:(int)(prob.shape[0] * percentage / 100)]

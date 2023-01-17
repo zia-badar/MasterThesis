@@ -40,7 +40,7 @@ def analyse(config):
         if i == 0:
             ax = fig.add_subplot(1, 2, 1, projection='3d')
             #
-            ax.scatter(xs=encoding_samples[:, 0], ys=encoding_samples[:, 1], zs=encoding_samples[:, 2], marker='.', c=prob, cmap=cmap)
+            # ax.scatter(xs=encoding_samples[:, 0], ys=encoding_samples[:, 1], marker='.', c=prob, cmap=cmap)
             ax.scatter(xs=data_samples[:, 0], ys=data_samples[:, 1], zs=data_samples[:, 2], marker='.', c=prob, cmap='Reds')
 
             ax.set_xlabel('x')
@@ -51,19 +51,19 @@ def analyse(config):
             ax = fig.add_subplot(1, 2, 2, projection='3d')
             ax.scatter(xs=data_samples[:, 0], ys=data_samples[:, 1], zs=data_samples[:, 2], marker='.', c=prob, cmap='Reds')
 
-        start, end, step = -10, 10, 0.5
+        start, end, step = -15, 15, 0.1
         x, y, z = torch.arange(start, end, step), torch.arange(start, end, step), torch.arange(start, end, step)
         # x, y, z = torch.arange(-4, 4, step), torch.arange(1, 4, step), torch.arange(7, 10, step)
         # x, y, z = torch.arange(-3, -2.5, step), torch.arange(2, 2.5, step), torch.arange(8, 9, step)
         grid_x, grid_y, grid_z = torch.meshgrid(x, y, z)
         encoder = Encoder(result.config)
-        encoder.load_state_dict(result.latest_model)
+        encoder.load_state_dict(result.min_condition_no_model)
         encoder.eval()
         encoder.cuda()
         data_samples = torch.stack([grid_x, grid_y, grid_z]).reshape(3, -1).t().cuda()
         with torch.no_grad():
             encoding_samples = encoder(data_samples.to(torch.float))
-        distribution = result.latest_distribution
+        distribution = result.min_condition_no_distribution
         prob = []
         batch_size = 512000
         for i in range(batch_size, encoding_samples.shape[0]+1, batch_size):
@@ -119,13 +119,13 @@ def analyse(config):
     assert torch.max(prob).item() <= 1.0, 'prob upper bound error'
     assert torch.min(prob).item() >= 0, 'prob lower bound error'
 
-    percentage = 1
+    percentage = 0.01
     sorted_index = torch.argsort(prob, descending=True)
     indexes = sorted_index[:(int)(prob.shape[0] * percentage / 100)]
     plot_prob = prob[indexes].cpu().numpy()
     plot_samples = data_samples[indexes, :].cpu().numpy()
 
-    # threashold = 0.2
+    # threashold = 0.1
     # plot_samples = data_samples[prob.cpu() > threashold, :].cpu().numpy()
     # plot_prob = prob[prob > threashold].cpu().numpy()
 

@@ -127,14 +127,14 @@ def evaluate_encoder(encoder, train_dataset, validation_dataset, config):
 
 if __name__ == '__main__':
     _class = 1
-    config = {'batch_size': 64, 'epochs': 200, 'data_dim': 3, 'encoding_dim': 3, 'encoder_iters': 1000, 'discriminator_n': 4, 'lr': 1e-3, 'weight_decay': 1e-5, 'clip': 1e-2, 'result_folder': f'results/set_{(int)(mktime(localtime()))}_{_class}/'}
+    config = {'batch_size': 64, 'epochs': 200, 'data_dim': 3, 'encoding_dim': 3, 'encoder_iters': 100, 'discriminator_n': 5, 'lr': 5e-5, 'weight_decay': 1e-6, 'clip': 1e-2, 'result_folder': f'results/set_{(int)(mktime(localtime()))}_{_class}/'}
 
     config['class'] = 1
     mkdir(config['result_folder'])
     # train_classifier(config)
     # train_binary_classifier(config)
 
-    for _ in range(10):
+    for _ in range(1):
         train_encoder(config)
 
     analyse(config)

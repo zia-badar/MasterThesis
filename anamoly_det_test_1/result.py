@@ -25,3 +25,4 @@ class training_result:
             self.min_condition_no_distribution = MultivariateNormal(mean, cov)
 
         self.latest_model = training_result.model_state_dict(model)
+        self.latest_distribution = MultivariateNormal(mean, cov)

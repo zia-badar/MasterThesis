@@ -1,3 +1,5 @@
+from os import mkdir
+
 import torch
 from sklearn.metrics import roc_auc_score
 from torch import nn, norm, optim
@@ -194,8 +196,8 @@ def train(config):
     validation_dataset = AugmentedDataset(validation_dataset, pair=False)
     without_pair_train_dataset = AugmentedDataset(train_dataset, pair=False)
 
-    train_dataset = AugmentedDataset(train_dataset)
-    # train_dataset = AugmentedDataset(train_dataset, aug=True)
+    # train_dataset = AugmentedDataset(train_dataset)
+    train_dataset = AugmentedDataset(train_dataset, aug=True)
     train_dataloader = DataLoader(train_dataset, batch_size=config['batch_size'], shuffle=True, num_workers=20)
 
     # model = efficient_net(config).cuda()
@@ -224,13 +226,16 @@ def train(config):
 
         # progress_bar.set_description(f'loss: {total_loss: .4f}')
         print(f'loss: {total_loss/len(train_dataloader): .2f}, epoch: {epoch}')
-        if epoch % 50 == 0:
+        if epoch % 200 == 0:
             print(f'roc: {evaluated(model, without_pair_train_dataset, validation_dataset, config)}')
-            if epoch % 100 == 0:
-                torch.save(model.state_dict(), 'constrastive_model_512_128_8_layers_with_aug')
+            # if epoch % 100 == 0:
+            #     torch.save(model.state_dict(), f'{config["result_folder"]}constrastive_model_with_aug_{config["class"]}')
+
+    torch.save(model.state_dict(), f'{config["result_folder"]}constrastive_model_with_aug_{config["class"]}')
 
 if __name__ == '__main__':
-    config = {'class': -1, 'batch_size': 512, 'feature_projection_dim': 128, 'epochs': 1000}
+    config = {'class': -1, 'batch_size': 512, 'feature_projection_dim': 128, 'epochs': 1000, 'result_folder': 'simclr_ad/results/'}
 
-    config['class'] = 1
-    train(config)
+    for _class in range(10):
+        config['class'] = _class
+        train(config)

@@ -1,6 +1,6 @@
 import torch
 from torch.distributions import MultivariateNormal
-from torch.utils.data import Dataset
+from torch.utils.data import Dataset, DataLoader
 from torchvision import transforms
 from torchvision.transforms import ToTensor
 
@@ -32,6 +32,30 @@ class OneClassDataset(Dataset):
 
     def __len__(self):
         return len(self.filtered_indexes)
+
+class EmbeddedDataset(Dataset):
+
+    def __init__(self, dataset, model):
+        with torch.no_grad():
+            self.x = []
+            self.l = []
+            dataloader = DataLoader(dataset, shuffle=False, batch_size=128)
+            for x, l in dataloader:
+                f, _ = model(x.cuda())
+                self.x.append(f)
+                self.l.append(l)
+
+            self.x = torch.cat(self.x)
+            self.l = torch.cat(self.l)
+
+        self.x = self.x.cpu()
+        self.l = self.l.cpu()
+
+    def __getitem__(self, item):
+        return self.x[item], self.l[item]
+
+    def __len__(self):
+        return self.x.shape[0]
 
 class AugmentedDataset(Dataset):
     def __init__(self, dataset, pair=True):

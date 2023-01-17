@@ -16,3 +16,6 @@ thesis/analysis.csv
 linearity_test_2/results/*
 anamoly_det_test_1/results/*
 constrastive_model*
+anamoly_det_test_2/results
+anamoly_det_test_1/result_tmp
+anamoly_det_test_1/tmp_file

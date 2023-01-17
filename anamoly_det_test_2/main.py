@@ -18,7 +18,7 @@ from torchvision.models import resnet18
 from torchvision.transforms import ToTensor
 
 from anamoly_det_test_2.analysis import analyse
-from anamoly_det_test_2.datasets import OneClassDataset, AugmentedDataset
+from anamoly_det_test_2.datasets import OneClassDataset, AugmentedDataset, EmbeddedDataset
 from anamoly_det_test_2.models import Discriminator, Encoder, Model
 from anamoly_det_test_2.result import training_result
 
@@ -42,9 +42,12 @@ def train_encoder(config):
 
     # model = efficient_net(config).cuda()
     model = Model(3).cuda()
-    model.load_state_dict(torch.load('../constrastive_model_512_128_8_layers_without_aug'))
+    model.load_state_dict(torch.load(f'../simclr_ad/results/constrastive_model_with_aug_{config["class"]}'))
     model.cuda()
     model.eval()
+
+    without_pair_train_dataset = EmbeddedDataset(without_pair_train_dataset, model)
+    validation_dataset = EmbeddedDataset(validation_dataset, model)
 
     f = Discriminator(config).cuda()
     e = Encoder(config).cuda()
@@ -74,7 +77,7 @@ def train_encoder(config):
     optim_f = SGD(f.parameters(), lr=config['lr'], weight_decay=config['weight_decay'])
     optim_e = SGD(e.parameters(), lr=config['lr'], weight_decay=config['weight_decay'])
     normal_dist = MultivariateNormal(loc=torch.zeros(config['encoding_dim']), covariance_matrix=torch.eye(config['encoding_dim']))
-    # mean, cov, condition_no = evaluate_encoder(model, e, without_pair_train_dataset, validation_dataset, config)
+    # mean, cov, condition_no = evaluate_encoder(e, without_pair_train_dataset, validation_dataset, config)
     # print(f'iter: 0, mean: {torch.norm(mean).item() : .4f}, condition_no: {condition_no.item(): .4f}')
     result = training_result()
     # result.update(e, mean, cov, sys.maxsize-1)
@@ -90,7 +93,7 @@ def train_encoder(config):
                 _, batch = _next(discriminator_dataloader_iter)
 
             x, _ = batch
-            x, _ = model(x.cuda())
+            x = x.cuda()
             z = normal_dist.sample((x.shape[0], )).cuda()
 
             loss = -torch.mean(f(z) - f(e(x)))
@@ -108,7 +111,7 @@ def train_encoder(config):
             _, batch = _next(encoder_dataloader_iter)
 
         x, _ = batch
-        x, _ = model(x.cuda())
+        x = x.cuda()
 
         loss = -torch.mean(f(e(x)))
 
@@ -117,14 +120,14 @@ def train_encoder(config):
         optim_e.step()
 
         if encoder_iter % 100 == 0:
-            mean, cov, condition_no = evaluate_encoder(model, e, without_pair_train_dataset, validation_dataset, config, encoder_iter == config['encoder_iters'] or encoder_iter == 100)
+            mean, cov, condition_no = evaluate_encoder(e, without_pair_train_dataset, validation_dataset, config, encoder_iter == config['encoder_iters'] or encoder_iter == 100)
             result.update(e, mean, cov, condition_no)
             print(f'iter: {encoder_iter}, mean: {torch.norm(mean).item() : .4f}, condition_no: {condition_no.item(): .4f}')
 
     with open(result_file_name, 'wb') as file:
         dump(result, file)
 
-def evaluate_encoder(model, encoder, train_dataset, validation_dataset, config, compute_roc=False):
+def evaluate_encoder(encoder, train_dataset, validation_dataset, config, compute_roc=False):
     encoder.eval()
 
     with torch.no_grad():
@@ -132,7 +135,7 @@ def evaluate_encoder(model, encoder, train_dataset, validation_dataset, config, 
             train_dataloader = DataLoader(dataset, batch_size=config['batch_size'], shuffle=True, num_workers=config['num_workers'])
             encodings = []
             for x, _ in train_dataloader:
-                x, _ = model(x.cuda())
+                x = x.cuda()
                 encodings.append(encoder(x))
 
             encodings = torch.cat(encodings)
@@ -147,7 +150,7 @@ def evaluate_encoder(model, encoder, train_dataset, validation_dataset, config, 
             data_samples = []
             labels = []
             for x, l in validation_dataloader:
-                x, _ = model(x.cuda())
+                x = x.cuda()
                 data_samples.append(x)
                 labels.append(l)
             data_samples = torch.cat(data_samples)
@@ -180,18 +183,20 @@ def evaluate_encoder(model, encoder, train_dataset, validation_dataset, config, 
     return mean, cov, condition_no
 
 if __name__ == '__main__':
-    _class = 1
-    config = {'batch_size': 64, 'epochs': 200, 'data_dim': 512, 'encoding_dim': 128, 'encoder_iters': 1000, 'discriminator_n': 4, 'lr': 1e-3, 'weight_decay': 1e-5, 'clip': 1e-2, 'num_workers': 20, 'result_folder': f'results/set_{(int)(mktime(localtime()))}_{_class}/' }
+    for _class in range(10):
+        config = {'batch_size': 64, 'epochs': 200, 'data_dim': 512, 'encoding_dim': 128, 'encoder_iters': 2000,
+                  'discriminator_n': 4, 'lr': 1e-3, 'weight_decay': 1e-5, 'clip': 1e-2, 'num_workers': 20,
+                  'result_folder': f'results/set_{(int)(mktime(localtime()))}_{_class}/'}
 
-    config['class'] = _class
-    mkdir(config['result_folder'])
-    # train_classifier(config)
-    # train_binary_classifier(config)
+        config['class'] = _class
+        mkdir(config['result_folder'])
+        # train_classifier(config)
+        # train_binary_classifier(config)
 
-    for _ in range(10):
-        try:
-            train_encoder(config)
-        except:
-            print('exception')
+        for _ in range(10):
+            try:
+                train_encoder(config)
+            except:
+                print('exception')
 
-    analyse(config)
+        analyse(config)

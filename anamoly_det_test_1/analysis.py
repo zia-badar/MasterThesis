@@ -9,7 +9,7 @@ from torch import det
 from torch.distributions import MultivariateNormal
 from torch.utils.data import Subset, ConcatDataset, DataLoader
 from torchvision import transforms
-from torchvision.datasets import MNIST
+from torchvision.datasets import MNIST, CIFAR10
 from torchvision.transforms import ToTensor
 
 from anamoly_det_test_1.datasets import OneClassDataset
@@ -21,7 +21,7 @@ def analyse(config):
     inlier = [config['class']]
     outlier = list(range(10))
     outlier.remove(config['class'])
-    dataset = MNIST(root='../', train=True, download=True)
+    dataset = CIFAR10(root='../', train=True, download=True)
     transform = transforms.Compose([ToTensor()])
     inlier_dataset = OneClassDataset(dataset, one_class_labels=inlier, transform=transform)
     outlier_dataset = OneClassDataset(dataset, zero_class_labels=outlier, transform=transform)
@@ -40,24 +40,28 @@ def analyse(config):
         # config = result.config
         # distribution = result.min_condition_no_distribution
 
+        if not result_file.endswith('_1000'):
+            continue
+
 
         validation_dataloader = DataLoader(validation_dataset, batch_size=config['batch_size'], shuffle=False, num_workers=config['num_workers'])
         model = Encoder(config)
-        model.load_state_dict(result.latest_model)
+        model.load_state_dict(result.min_condition_no_model)
         model.eval()
         model = model.cuda()
 
-        train_dataloader = DataLoader(train_dataset, batch_size=config['batch_size'], shuffle=True, num_workers=config['num_workers'])
-        encodings = []
-        with torch.no_grad():
-            for x, _ in train_dataloader:
-                x = x.cuda()
-                encodings.append(model(x))
-
-        encodings = torch.cat(encodings)
-        mean = torch.mean(encodings, dim=0)
-        cov = torch.cov(encodings.t(), correction=0)
-        distribution = MultivariateNormal(mean, cov)
+        # train_dataloader = DataLoader(train_dataset, batch_size=config['batch_size'], shuffle=True, num_workers=config['num_workers'])
+        # encodings = []
+        # with torch.no_grad():
+        #     for x, _ in train_dataloader:
+        #         x = x.cuda()
+        #         encodings.append(model(x))
+        #
+        # encodings = torch.cat(encodings)
+        # mean = torch.mean(encodings, dim=0)
+        # cov = torch.cov(encodings.t(), correction=0)
+        # distribution = MultivariateNormal(mean, cov)
+        distribution = result.min_condition_no_distribution
 
         prob = []
         labels = []
@@ -89,8 +93,7 @@ def analyse(config):
 
         prob_count += 1
 
-        if i % 40 == 0:
-            print(f'roc_score: {roc_auc_score(labels.cpu().numpy(), (prob_sum / prob_count).cpu().numpy())}')
+        print(f'roc_score: {roc_auc_score(labels.cpu().numpy(), (prob_sum / prob_count).cpu().numpy())}')
 
     print(f'not_nan: {prob_count}')
     prob = prob_sum / prob_count
