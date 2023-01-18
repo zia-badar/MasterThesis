@@ -35,6 +35,7 @@ class Discriminator(nn.Module):
             nn.Linear(in_features=config['encoding_dim'], out_features=1)
         )
 
+
     def forward(self, x):
         # return torch.sum(self.d(x), dim=-1)
         return torch.squeeze(self.d(x))
@@ -59,17 +60,27 @@ class Encoder(nn.Module):
             # nn.Linear(in_features=(int)(config['data_dim']/8), out_features=config['encoding_dim']),
 
             # Conv2d(in_channels=1, out_channels=256, kernel_size=4, stride=2, padding=1, bias=False),
+            # Conv2d(in_channels=3, out_channels=256, kernel_size=4, stride=2, padding=1, bias=False),
+            # BatchNorm2d(num_features=256),
+            # LeakyReLU(0.2, inplace=True),
+            # Conv2d(in_channels=256, out_channels=512, kernel_size=4, stride=2, padding=1, bias=False),
+            # BatchNorm2d(num_features=512),
+            # LeakyReLU(0.2, inplace=True),
+            # Conv2d(in_channels=512, out_channels=1024, kernel_size=4, stride=2, padding=1, bias=False),
+            # BatchNorm2d(num_features=1024),
+            # LeakyReLU(0.2, inplace=True),
+            # Conv2d(in_channels=1024, out_channels=config['encoding_dim'], kernel_size=4, bias=False),
+
             Conv2d(in_channels=3, out_channels=256, kernel_size=4, stride=2, padding=1, bias=False),
             BatchNorm2d(num_features=256),
             LeakyReLU(0.2, inplace=True),
-            Conv2d(in_channels=256, out_channels=512, kernel_size=4, stride=2, padding=1, bias=False),
-            BatchNorm2d(num_features=512),
+            Conv2d(in_channels=256, out_channels=128, kernel_size=4, stride=2, padding=1, bias=False),
+            BatchNorm2d(num_features=128),
             LeakyReLU(0.2, inplace=True),
-            Conv2d(in_channels=512, out_channels=1024, kernel_size=4, stride=2, padding=1, bias=False),
-            BatchNorm2d(num_features=1024),
+            Conv2d(in_channels=128, out_channels=64, kernel_size=4, stride=2, padding=1, bias=False),
+            BatchNorm2d(num_features=64),
             LeakyReLU(0.2, inplace=True),
-            Conv2d(in_channels=1024, out_channels=config['encoding_dim'], kernel_size=4, bias=False),
-
+            Conv2d(in_channels=64, out_channels=config['encoding_dim'], kernel_size=4, bias=False),
         )
 
 

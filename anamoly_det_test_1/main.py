@@ -4,6 +4,7 @@ from pickle import dumps, dump
 from time import localtime, mktime
 import shutil
 
+import numpy as np
 import torch.nn
 from sklearn.metrics import roc_auc_score
 from torch import softmax, sigmoid, nn, det
@@ -110,17 +111,17 @@ def train_encoder(config):
         #cov_non_diag = cov - cov_diag
         f_x = f(e_x)
         #loss = -(torch.mean(f_x) - 1e-3*(torch.norm(torch.mean(e_x, dim=1)) + torch.mean(torch.abs(cov_non_diag)) + torch.mean(torch.abs(1 - torch.abs(cov_diag)))))
-        loss = -(torch.mean(f_x) - 1e-3*(torch.norm(torch.mean(e_x, dim=1))))
-        #loss = -torch.mean(f_x)
+        loss = -(torch.mean(f_x) - 1e-5*(torch.norm(torch.mean(e_x, dim=1))))
+        # loss = -torch.mean(f_x)
 
         optim_e.zero_grad()
         loss.backward()
         optim_e.step()
 
-        if encoder_iter % (config['encoder_iters']/2) == 0:
+        if encoder_iter % config['encoder_iters'] == 0:
             mean, cov, condition_no = evaluate_encoder(e, train_dataset, validation_dataset, config)
             result.update(e, mean, cov, condition_no)
-            print(f'iter: {encoder_iter}, mean: {torch.norm(mean).item() : .4f}, condition_no: {condition_no.item(): .4f}')
+            print(f'cov: {cov}, iter: {encoder_iter}, mean: {torch.norm(mean).item() : .4f}, condition_no: {condition_no.item(): .4f}')
             # result.update(e, None, None, -1)
 
             with open(result_file_name + f'_{encoder_iter}', 'wb') as file:
@@ -155,32 +156,39 @@ def evaluate_encoder(encoder, train_dataset, validation_dataset, config):
         with torch.no_grad():
             for x, l in validation_dataloader:
                 x = x.cuda()
-                prob.append(torch.exp(distribution.log_prob(encoder(x))))
+                # prob.append(torch.exp(distribution.log_prob(encoder(x))))
                 labels.append(l)
-        
-        prob = torch.cat(prob)
+                log_prob = np.float128(distribution.log_prob(encoder(x)).cpu().numpy())
+                prob.append(np.exp(log_prob))
+
+        prob = np.concatenate(prob)
+        # prob = torch.cat(prob)
         labels = torch.cat(labels)
         
         cov = distribution.covariance_matrix
         d = cov.shape[0]
-        Z = torch.sqrt(torch.pow(torch.tensor([2 * torch.pi], dtype=torch.float64).cuda(), d) * det(cov)).type( torch.float32)
+        eig_val = torch.real(torch.linalg.eig(cov)[0]).to(torch.float64)
+        # Z = torch.sqrt(torch.pow(torch.tensor([2 * torch.pi], dtype=torch.float64).cuda(), d) * det(cov)).type( torch.float32)
+        Z = np.sqrt((np.power(np.float128(2 * np.pi), d) * np.prod(np.float128(eig_val.cpu().numpy()))))
         prob = prob * Z
         
-        print(f'roc: {roc_auc_score(labels.cpu().numpy(), prob.cpu().numpy())}')
+        print( f'roc: {roc_auc_score(labels.cpu().numpy(), prob)}, z: {Z}, prob_max: {np.max(prob)}, prob_min: {np.min(prob)}')
 
     encoder.train()
 
     return mean, cov, condition_no
 
 if __name__ == '__main__':
+    torch.backends.cudnn.benchmark = False
+    torch.backends.cudnn.deterministic = True
 
     for _class in range(10):
-        config = {'batch_size': 64, 'epochs': 200, 'encoding_dim': 64, 'encoder_iters': 4000, 'discriminator_n': 5, 'lr': 5e-5, 'weight_decay': 1e-6, 'clip': 1e-2, 'num_workers': 20, 'result_folder': f'results/set_{(int)(mktime(localtime()))}_{_class}/' }
+        config = {'batch_size': 64, 'epochs': 200, 'encoding_dim': 32, 'encoder_iters': 2000, 'discriminator_n': 5, 'lr': 5e-5, 'weight_decay': 1e-6, 'clip': 1e-2, 'num_workers': 20, 'result_folder': f'results/set_{(int)(mktime(localtime()))}_{_class}/' }
 
         config['class'] = _class
         mkdir(config['result_folder'])
 
-        for _ in range(5):
+        for _ in range(10):
             train_encoder(config)
 
         analyse(config)
