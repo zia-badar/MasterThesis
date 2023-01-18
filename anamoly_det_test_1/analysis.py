@@ -40,13 +40,13 @@ def analyse(config):
         # config = result.config
         # distribution = result.min_condition_no_distribution
 
-        if not result_file.endswith('_1000'):
+        if not result_file.endswith('_4000'):
             continue
 
 
         validation_dataloader = DataLoader(validation_dataset, batch_size=config['batch_size'], shuffle=False, num_workers=config['num_workers'])
         model = Encoder(config)
-        model.load_state_dict(result.min_condition_no_model)
+        model.load_state_dict(result.latest_model)
         model.eval()
         model = model.cuda()
 
@@ -61,7 +61,7 @@ def analyse(config):
         # mean = torch.mean(encodings, dim=0)
         # cov = torch.cov(encodings.t(), correction=0)
         # distribution = MultivariateNormal(mean, cov)
-        distribution = result.min_condition_no_distribution
+        distribution = result.latest_distribution
 
         prob = []
         labels = []
