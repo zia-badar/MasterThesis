@@ -1,11 +1,12 @@
 import torch
 from torch.distributions import MultivariateNormal
 from torch.utils.data import Dataset
+from torchvision import transforms
 from torchvision.transforms import Compose, ToTensor, Resize, Normalize
 
 
 class OneClassDataset(Dataset):
-    def __init__(self, dataset: Dataset, one_class_labels=[], zero_class_labels=[], transform=None):
+    def __init__(self, dataset: Dataset, one_class_labels=[], zero_class_labels=[], transform=None, augmentation=False):
         self.dataset = dataset
         self.one_class_labels = one_class_labels
         self.transform = transform
@@ -28,6 +29,14 @@ class OneClassDataset(Dataset):
         self.xs = torch.stack(self.xs)
         self.ls = torch.tensor(self.ls)
 
+        self.augmentation = augmentation
+
+        self.aug_transform = transforms.Compose([
+            transforms.RandomResizedCrop(32),
+            transforms.RandomHorizontalFlip(p=0.5),
+            transforms.RandomApply([transforms.ColorJitter(0.4, 0.4, 0.4, 0.1)], p=0.8),
+            transforms.RandomGrayscale(p=0.2)])
+
     def __getitem__(self, item):
         # x, l = self.dataset[self.filtered_indexes[item]]
         #
@@ -36,7 +45,14 @@ class OneClassDataset(Dataset):
         # l = 1 if l in self.one_class_labels else 0
 
         # return x, l
-        return self.xs[item], 1 if self.ls[item] in self.one_class_labels else 0
+        x = self.xs[item]
+        l = 1 if self.ls[item] in self.one_class_labels else 0
+
+
+        if self.augmentation:
+            return x, self.aug_transform(x), l
+        else:
+            return x, l
 
     def __len__(self):
         return len(self.filtered_indexes)

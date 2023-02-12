@@ -26,3 +26,4 @@ anamoly_det_test_1/slurm.sh
 simclr_ad/slurm.sh
 thesis/slurm.sh
 anamoly_det_test_1/tmp_file_2
+anamoly_det_test_1/result_mnist

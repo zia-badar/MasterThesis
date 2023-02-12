@@ -10,7 +10,7 @@ from torch import softmax, sigmoid, nn
 from torch.distributions import MultivariateNormal
 from torch.linalg import eig
 from torch.nn import CrossEntropyLoss, BCELoss, BCEWithLogitsLoss
-from torch.optim import Adam, SGD
+from torch.optim import Adam, SGD, RMSprop
 from torch.utils.data import Subset, DataLoader, ConcatDataset
 from torchvision import transforms
 from torchvision.datasets import CIFAR10
@@ -74,8 +74,8 @@ def train_encoder(config):
 
     discriminator_dataloader_iter = iter(DataLoader(without_pair_train_dataset, batch_size=config['batch_size'], shuffle=True, num_workers=config['num_workers']))
     encoder_dataloader_iter = iter(DataLoader(without_pair_train_dataset, batch_size=config['batch_size'], shuffle=True, num_workers=config['num_workers']))
-    optim_f = SGD(f.parameters(), lr=config['lr'], weight_decay=config['weight_decay'])
-    optim_e = SGD(e.parameters(), lr=config['lr'], weight_decay=config['weight_decay'])
+    optim_f = RMSprop(f.parameters(), lr=config['lr'], weight_decay=config['weight_decay'])
+    optim_e = RMSprop(e.parameters(), lr=config['lr'], weight_decay=config['weight_decay'])
     normal_dist = MultivariateNormal(loc=torch.zeros(config['encoding_dim']), covariance_matrix=torch.eye(config['encoding_dim']))
     # mean, cov, condition_no = evaluate_encoder(e, without_pair_train_dataset, validation_dataset, config)
     # print(f'iter: 0, mean: {torch.norm(mean).item() : .4f}, condition_no: {condition_no.item(): .4f}')
@@ -103,7 +103,7 @@ def train_encoder(config):
             optim_f.step()
 
             for parameter in f.parameters():
-                parameter.data.clamp(-config['clip'], config['clip'])
+                parameter.data = parameter.data.clamp(-config['clip'], config['clip'])
 
         empty, batch = _next(encoder_dataloader_iter)
         if empty:
@@ -119,8 +119,8 @@ def train_encoder(config):
         loss.backward()
         optim_e.step()
 
-        if encoder_iter % 100 == 0:
-            mean, cov, condition_no = evaluate_encoder(e, without_pair_train_dataset, validation_dataset, config, encoder_iter == config['encoder_iters'] or encoder_iter == 100)
+        if encoder_iter % config['encoder_iters'] == 0:
+            mean, cov, condition_no = evaluate_encoder(e, without_pair_train_dataset, validation_dataset, config, True)
             result.update(e, mean, cov, condition_no)
             print(f'iter: {encoder_iter}, mean: {torch.norm(mean).item() : .4f}, condition_no: {condition_no.item(): .4f}')
 
@@ -184,8 +184,8 @@ def evaluate_encoder(encoder, train_dataset, validation_dataset, config, compute
 
 if __name__ == '__main__':
     for _class in range(10):
-        config = {'batch_size': 64, 'epochs': 200, 'data_dim': 512, 'encoding_dim': 128, 'encoder_iters': 2000,
-                  'discriminator_n': 4, 'lr': 1e-3, 'weight_decay': 1e-5, 'clip': 1e-2, 'num_workers': 20,
+        config = {'batch_size': 64, 'epochs': 200, 'data_dim': 512, 'encoding_dim': 64, 'encoder_iters': 1000,
+                  'discriminator_n': 5, 'lr': 5e-5, 'weight_decay': 1e-6, 'clip': 1e-2, 'num_workers': 20,
                   'result_folder': f'results/set_{(int)(mktime(localtime()))}_{_class}/'}
 
         config['class'] = _class
@@ -200,3 +200,4 @@ if __name__ == '__main__':
                 print('exception')
 
         analyse(config)
+        # shutil.rmtree(config['result_folder'])

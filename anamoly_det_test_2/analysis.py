@@ -128,7 +128,7 @@ def analyse(config):
         # # x, y, z = torch.arange(-1, 1, step), torch.arange(-2, 2, step), torch.arange(-.25, .25, step)
         # grid_x, grid_y, grid_z = torch.meshgrid(x, y, z)
         encoder = Encoder(config)
-        encoder.load_state_dict(result.min_condition_no_model)
+        encoder.load_state_dict(result.latest_model)
         encoder.eval()
         encoder.cuda()
         # data_samples = torch.stack([grid_x, grid_y, grid_z]).reshape(3, -1).t().cuda()
@@ -146,7 +146,7 @@ def analyse(config):
         with torch.no_grad():
             encoding_samples = encoder(data_samples)
 
-        distribution = result.min_condition_no_distribution
+        distribution = result.latest_distribution
         prob = []
         batch_size = 512000
         for i in range(batch_size, encoding_samples.shape[0]+1, batch_size):
@@ -184,6 +184,7 @@ def analyse(config):
 
         prob_count += 1
 
+        # if i % 10 == 0:
         print(f'roc: {roc_auc_score(labels, (prob_sum/prob_count).cpu().numpy())}')
         # threashold = 0.999999
         # plot_samples = data_samples[prob.cpu() > threashold, :].cpu().numpy()

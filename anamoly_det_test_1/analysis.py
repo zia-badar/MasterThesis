@@ -40,8 +40,8 @@ def analyse(config):
         # config = result.config
         # distribution = result.min_condition_no_distribution
 
-        if not result_file.endswith('_4000'):
-            continue
+        # if not result_file.endswith('_4000'):
+        #     continue
 
 
         validation_dataloader = DataLoader(validation_dataset, batch_size=config['batch_size'], shuffle=False, num_workers=config['num_workers'])
@@ -68,16 +68,22 @@ def analyse(config):
         with torch.no_grad():
             for x, l in validation_dataloader:
                 x = x.cuda()
-                prob.append(torch.exp(distribution.log_prob(model(x))))
+                # prob.append(torch.exp(distribution.log_prob(model(x))))
+                log_prob = np.float128( distribution.log_prob(model(x)).cpu().numpy())
+                prob.append(np.exp(log_prob))
                 labels.append(l)
 
-        prob = torch.cat(prob)
+        # prob = torch.cat(prob)
+        prob = np.concatenate(prob)
         labels = torch.cat(labels)
 
         cov = distribution.covariance_matrix
         d = cov.shape[0]
-        Z = torch.sqrt(torch.pow(torch.tensor([2*torch.pi], dtype=torch.float64).cuda(), d) * det(cov)).type(torch.float32)
+        eig_val = torch.real(torch.linalg.eig(cov)[0]).to(torch.float64)
+        # Z = torch.sqrt(torch.pow(torch.tensor([2*torch.pi], dtype=torch.float64).cuda(), d) * det(cov)).type(torch.float32)
+        Z = np.sqrt((np.power(np.float128(2 * np.pi), d) * np.prod(np.float128(eig_val.cpu().numpy()))))
         prob = prob * Z
+        prob = torch.tensor(np.float64(prob))
 
         if torch.any(torch.isnan(prob)).item():
             continue
@@ -93,7 +99,8 @@ def analyse(config):
 
         prob_count += 1
 
-        print(f'roc_score: {roc_auc_score(labels.cpu().numpy(), (prob_sum / prob_count).cpu().numpy())}')
+        # if (i+1) % 10 == 0:
+        print(f'{result_file}, roc_score: {roc_auc_score(labels.cpu().numpy(), (prob_sum / prob_count).cpu().numpy())}, roc: {roc_auc_score(labels.cpu().numpy(), prob.cpu().numpy())}, {torch.max(eig_val.real) / torch.min(eig_val.real)}')
 
     print(f'not_nan: {prob_count}')
     prob = prob_sum / prob_count
