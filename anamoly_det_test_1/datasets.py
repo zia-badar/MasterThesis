@@ -18,12 +18,12 @@ class OneClassDataset(Dataset):
                 self.filtered_indexes.append(i)
 
         # transform = Compose([ToTensor(), Resize((32, 32)), Normalize(mean=(0.5), std=(0.5))])
-        transform = Compose([ToTensor(), Normalize(mean=(0.5, 0.5, 0.5), std=(0.5, 0.5, 0.5))])
+        to_tensor = ToTensor()
         self.xs = []
         self.ls = []
         for findex in self.filtered_indexes:
             x, l = self.dataset[findex]
-            self.xs.append(transform(x))
+            self.xs.append(to_tensor(x))
             self.ls.append(l)
 
         self.xs = torch.stack(self.xs)
@@ -36,6 +36,8 @@ class OneClassDataset(Dataset):
             transforms.RandomHorizontalFlip(p=0.5),
             transforms.RandomApply([transforms.ColorJitter(0.4, 0.4, 0.4, 0.1)], p=0.8),
             transforms.RandomGrayscale(p=0.2)])
+
+        self.norm_transform = Compose([Normalize(mean=(0.5, 0.5, 0.5), std=(0.5, 0.5, 0.5))])
 
     def __getitem__(self, item):
         # x, l = self.dataset[self.filtered_indexes[item]]
@@ -50,9 +52,9 @@ class OneClassDataset(Dataset):
 
 
         if self.augmentation:
-            return x, self.aug_transform(x), l
+            return self.norm_transform(x), self.norm_transform(self.aug_transform(x)), l
         else:
-            return x, l
+            return self.norm_transform(x), l
 
     def __len__(self):
         return len(self.filtered_indexes)

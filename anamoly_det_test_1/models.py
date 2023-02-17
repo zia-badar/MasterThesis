@@ -3,7 +3,9 @@ from pickle import load
 import torch
 from torch import nn
 from torch.nn import Flatten, Conv2d, BatchNorm2d, ReLU, BatchNorm1d, LeakyReLU
-from torchvision.models import resnet18
+
+from anamoly_det_test_1.resnet import resnet188
+
 
 class AbsActivation(nn.Module):
 
@@ -25,13 +27,13 @@ class Discriminator(nn.Module):
         self.d = nn.Sequential(
 
             nn.Linear(in_features=config['encoding_dim'], out_features=config['encoding_dim']),
-            ReLU(inplace=True),
+            LeakyReLU(0.2, inplace=True),
             nn.Linear(in_features=config['encoding_dim'], out_features=config['encoding_dim']),
             BatchNorm1d(num_features=config['encoding_dim']),
-            ReLU(inplace=True),
+            LeakyReLU(0.2, inplace=True),
             nn.Linear(in_features=config['encoding_dim'], out_features=config['encoding_dim']),
             BatchNorm1d(num_features=config['encoding_dim']),
-            ReLU(inplace=True),
+            LeakyReLU(0.2, inplace=True),
             nn.Linear(in_features=config['encoding_dim'], out_features=1)
         )
 

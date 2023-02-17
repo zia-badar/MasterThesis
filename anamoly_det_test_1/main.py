@@ -1,11 +1,12 @@
 import sys
-from os import mkdir, rmdir
+from os import mkdir, rmdir, listdir
 from pickle import dumps, dump
 from time import localtime, mktime
 import shutil
 
 import numpy as np
 import torch.nn
+from numpy import arange
 from sklearn.metrics import roc_auc_score
 from torch import softmax, sigmoid, nn, det
 from torch.distributions import MultivariateNormal
@@ -123,7 +124,8 @@ def train_encoder(config):
         f_x = f(e_x)
         #loss = -(torch.mean(f_x) - 1e-3*(torch.norm(torch.mean(e_x, dim=1)) + torch.mean(torch.abs(cov_non_diag)) + torch.mean(torch.abs(1 - torch.abs(cov_diag)))))
         # loss = -(torch.mean(f_x) - 1e-5*(torch.norm(torch.mean(e_x, dim=1))))
-        loss = -(torch.mean(f_x) - 1e-5*(torch.norm(torch.mean(e_x, dim=1))) + 1e-6*(torch.mean(cosine_sim(e_x_without_grad, e_x_aug))))
+        loss = -(torch.mean(f_x) - 1e-3*(torch.norm(torch.mean(e_x, dim=1))) + 1e-3*(torch.mean(cosine_sim(e_x_without_grad, e_x_aug))))
+        # loss = -(torch.mean(f_x) - 1e-5*(torch.norm(torch.mean(e_x, dim=1))) + 1e-6*(torch.mean(torch.abs(torch.norm(e_x, dim=1) - torch.norm(e_x_aug, dim=1)))))
         # loss = -torch.mean(f_x)
 
         optim_e.zero_grad()
@@ -144,7 +146,7 @@ def train_encoder(config):
             # with open(result_file_name + f'_{encoder_iter}', 'wb') as file:
             #     dump(result, file)
 
-            with open(result_file_name, 'wb') as file:
+            with open(result_file_name + f'_{encoder_iter}', 'wb') as file:
                 dump(result, file)
 
     with open(result_file_name, 'wb') as file:
@@ -202,8 +204,11 @@ if __name__ == '__main__':
     torch.backends.cudnn.benchmark = False
     torch.backends.cudnn.deterministic = True
 
+    sum = 0
     for _class in range(0, 10):
+        # folder = list(filter(lambda f: f.endswith(str(_class)), listdir('/home/zia/Desktop/MasterThesis/anamoly_det_test_1/results/set_3/')))[0]
         config = {'batch_size': 64, 'epochs': 200, 'encoding_dim': 32, 'encoder_iters': 5000, 'discriminator_n': 5, 'lr': 5e-5, 'weight_decay': 1e-6, 'clip': 1e-2, 'num_workers': 20, 'result_folder': f'results/set_{(int)(mktime(localtime()))}_{_class}/' }
+        config['lambda'] = 0
 
         config['class'] = _class
         mkdir(config['result_folder'])
@@ -212,6 +217,9 @@ if __name__ == '__main__':
             ret = False
             while ret == False:
                 ret = train_encoder(config)
+        roc = analyse(config)
+        sum += roc
+        print(f'class: {_class}, roc: {roc}')
+        # shutil.rmtree(config['result_folder'])
 
-        analyse(config)
-    # shutil.rmtree(config['result_folder'])
+    print(f'avg roc: {sum/10.}')
