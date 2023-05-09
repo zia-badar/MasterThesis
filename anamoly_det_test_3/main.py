@@ -135,9 +135,9 @@ if __name__ == '__main__':
     torch.backends.cudnn.benchmark = False
     torch.backends.cudnn.deterministic = True
 
-    config = {'batch_size': 64, 'epochs': 200, 'encoding_dim': 1, 'projection_dim': 2, 'encoder_iters': 500, 'discriminator_n': 5, 'lr': 5e-5, 'weight_decay': 1e-6, 'clip': 1e-2, 'num_workers': 0, 'result_folder': f'results/set_{(int)(time() * 1000)}/' }
+    config = {'batch_size': 64, 'epochs': 200, 'encoding_dim': 2, 'projection_dim': 3, 'encoder_iters': 500, 'discriminator_n': 5, 'lr': 5e-5, 'weight_decay': 1e-6, 'clip': 1e-2, 'num_workers': 0, 'result_folder': f'results/set_{(int)(time() * 1000)}/' }
     mkdir(config['result_folder'])
 
-    for _ in range(30):
+    for _ in range(10):
         train_encoder(config)
     analyse(config)

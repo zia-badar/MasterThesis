@@ -21,10 +21,16 @@ def analyse(config):
     normal_dist = MultivariateNormal(loc=torch.zeros(config['encoding_dim']), covariance_matrix=torch.eye(config['encoding_dim']))
     train_dataset = ProjectedDataset(train=True, distribution=normal_dist, projection=Projection(config))
 
-    start, end, step = -10, 10, 0.05
-    x, y = torch.arange(start, end, step), torch.arange(start, end, step)
-    grid_x, grid_y = torch.meshgrid(x, y)
-    grid_samples = torch.stack([grid_x, grid_y]).reshape(2, -1).t().cuda()
+    start, end, step = -1, 1, 0.01
+
+    if config['projection_dim'] == 3:
+        x, y, z = torch.arange(0, 1, step), torch.arange(0.3, 0.6, step), torch.arange(-1, 0.5, step)
+        grid_x, grid_y, grid_z = torch.meshgrid(x, y, z)
+        grid_samples = torch.stack([grid_x, grid_y, grid_z]).reshape(3, -1).t().cuda()
+    elif config['projection_dim'] == 2:
+        x, y = torch.arange(-1, 2, step), torch.arange(-2, 0, step)
+        grid_x, grid_y = torch.meshgrid(x, y)
+        grid_samples = torch.stack([grid_x, grid_y]).reshape(2, -1).t().cuda()
 
     prob_sum = None
     prob_count = 0
@@ -88,21 +94,34 @@ def analyse(config):
     assert torch.min(prob).item() >= 0, 'prob lower bound error'
 
     fig = pyplot.figure()
-    ax = fig.subplots(1, 2)
+    if config['projection_dim'] == 3:
+        ax = fig.subplots(1, 2, subplot_kw={'projection': '3d'})
+    elif config['projection_dim'] == 2:
+        ax = fig.subplots(1, 2)
 
-    ax[0].scatter(x=train_projection[:, 0].cpu().numpy(), y = train_projection[:, 1].cpu().numpy())
+    if config['projection_dim'] == 3:
+        ax[0].scatter(xs=train_projection[:, 0].cpu().numpy(), ys = train_projection[:, 1].cpu().numpy(), zs = train_projection[:, 2].cpu().numpy())
+        percentage = 1
+    elif config['projection_dim'] == 2:
+        ax[0].scatter(x=train_projection[:, 0].cpu().numpy(), y = train_projection[:, 1].cpu().numpy())
+        percentage = 8
 
-    percentage = 1
     sorted_index = torch.argsort(prob, descending=True)
     indexes = sorted_index[:(int)(prob.shape[0] * percentage / 100)]
     plot_prob = prob[indexes].cpu().numpy()
     plot_samples = grid_samples[indexes, :].cpu().numpy()
 
-    ax[1].scatter(x=train_projection[:, 0].cpu().numpy(), y = train_projection[:, 1].cpu().numpy(), c='r')
+    if config['projection_dim'] == 3:
+        ax[1].scatter(xs=train_projection[:, 0].cpu().numpy(), ys = train_projection[:, 1].cpu().numpy(), zs = train_projection[:, 2].cpu().numpy(), marker='.', c='r')
+        ax[1].scatter(xs=plot_samples[:, 0], ys=plot_samples[:, 1], zs=plot_samples[:, 2], marker='.', c=plot_prob, cmap='spring')
+    elif config['projection_dim'] == 2:
+        ax[1].scatter(x=train_projection[:, 0].cpu().numpy(), y = train_projection[:, 1].cpu().numpy(), marker='.', c='r')
+        ax[1].scatter(x=plot_samples[:, 0], y=plot_samples[:, 1], marker='.', c=plot_prob, cmap='spring')
 
-    ax[1].scatter(x=plot_samples[:, 0], y=plot_samples[:, 1], marker='.', c=plot_prob, cmap='spring')
-
-    ax[1].set_xlabel('x')
-    ax[1].set_ylabel('y')
+    for _ax in [ax[0], ax[1]]:
+        _ax.set_xlabel('x')
+        _ax.set_ylabel('y')
+        if config['projection_dim'] == 3:
+            _ax.set_zlabel('z')
 
     pyplot.show()
