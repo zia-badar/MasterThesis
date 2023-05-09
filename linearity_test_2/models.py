@@ -22,18 +22,18 @@ class Discriminator(nn.Module):
     def __init__(self, config):
         super(Discriminator, self).__init__()
 
-        scale = 1
+        scale = 2
         self.d = nn.Sequential(
 
-            nn.Linear(in_features=config['encoding_dim'], out_features=config['encoding_dim']),
+            nn.Linear(in_features=config['encoding_dim'], out_features=scale*config['encoding_dim']),
             ReLU(inplace=True),
-            nn.Linear(in_features=config['encoding_dim'], out_features=config['encoding_dim']),
-            BatchNorm1d(num_features=config['encoding_dim']),
+            nn.Linear(in_features=scale*config['encoding_dim'], out_features=scale*config['encoding_dim']),
+            BatchNorm1d(num_features=scale*config['encoding_dim']),
             ReLU(inplace=True),
-            nn.Linear(in_features=config['encoding_dim'], out_features=config['encoding_dim']),
-            BatchNorm1d(num_features=config['encoding_dim']),
+            nn.Linear(in_features=scale*config['encoding_dim'], out_features=scale*config['encoding_dim']),
+            BatchNorm1d(num_features=scale*config['encoding_dim']),
             ReLU(inplace=True),
-            nn.Linear(in_features=config['encoding_dim'], out_features=1)
+            nn.Linear(in_features=scale*config['encoding_dim'], out_features=1)
 
             # nn.Linear(in_features=config['encoding_dim'], out_features=128),
             # AbsActivation(),
@@ -74,6 +74,7 @@ class Encoder(nn.Module):
     def __init__(self, config):
         super(Encoder, self).__init__()
 
+        scale = 4
         self.e = nn.Sequential(
 
             # nn.Linear(in_features=config['data_dim'], out_features=config['data_dim'] + scale, bias=False),
@@ -82,13 +83,16 @@ class Encoder(nn.Module):
             # nn.BatchNorm1d(num_features=config['data_dim'] + scale),
             # nn.Linear(in_features=config['data_dim'] + scale, out_features=config['encoding_dim']),
 
-            nn.Linear(in_features=config['data_dim'], out_features=config['data_dim']),
-            nn.BatchNorm1d(num_features=config['data_dim']),
+            nn.Linear(in_features=config['data_dim'], out_features=scale*config['data_dim']),
+            nn.BatchNorm1d(num_features=scale*config['data_dim']),
             nn.LeakyReLU(0.2, inplace=True),
-            nn.Linear(in_features=config['data_dim'], out_features=config['data_dim']),
-            nn.BatchNorm1d(num_features=config['data_dim']),
+            nn.Linear(in_features=scale*config['data_dim'], out_features=scale*config['data_dim']),
+            nn.BatchNorm1d(num_features=scale*config['data_dim']),
             nn.LeakyReLU(0.2, inplace=True),
-            nn.Linear(in_features=config['data_dim'], out_features=config['encoding_dim']),
+            nn.Linear(in_features=scale*config['data_dim'], out_features=scale*config['data_dim']),
+            nn.BatchNorm1d(num_features=scale*config['data_dim']),
+            nn.LeakyReLU(0.2, inplace=True),
+            nn.Linear(in_features=scale*config['data_dim'], out_features=config['encoding_dim']),
 
             # 3 -> 3, scale = 1
             # nn.BatchNorm1d(num_features=config['data_dim']),
@@ -127,9 +131,11 @@ class Projection(nn.Module):
         # self.projection_2 = torch.rand(size=(config['encoding_dim'], config['data_dim']))
         # self.translation_1 = 5 * torch.normal(mean=0, std=1, size=(config['data_dim'],))
         # self.translation_2 = 5 * torch.normal(mean=0, std=1, size=(config['data_dim'],))
-        
-        self.projection_1 = torch.tensor([[0.8560, 0.3906, 0.7770], [0.1772, 0.2052, 0.4125], [0.7921, 0.8567, 0.3301]])
-        self.projection_2 = torch.tensor([[0.9458, 0.2717, 0.7411], [0.5602, 0.7715, 0.1062], [0.4664, 0.5055, 0.6179]])
+
+        # self.projection_1 = torch.tensor([[0.8560, 0.3906, 0.7770], [0.1772, 0.2052, 0.4125], [0.7921, 0.8567, 0.3301]])
+        # self.projection_2 = torch.tensor([[0.9458, 0.2717, 0.7411], [0.5602, 0.7715, 0.1062], [0.4664, 0.5055, 0.6179]])
+        self.projection_1 = torch.tensor([[0.8560, 0.3906, 0.7770]])
+        self.projection_2 = torch.tensor([[0.9458, 0.2717, 0.7411]])
         self.translation_1 = torch.tensor([-2.6553,  2.4304,  8.3437])
         self.translation_2 = torch.tensor([5.3460, 2.8367, 1.0990])
 

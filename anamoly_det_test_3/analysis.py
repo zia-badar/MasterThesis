@@ -21,7 +21,7 @@ def analyse(config):
     normal_dist = MultivariateNormal(loc=torch.zeros(config['encoding_dim']), covariance_matrix=torch.eye(config['encoding_dim']))
     train_dataset = ProjectedDataset(train=True, distribution=normal_dist, projection=Projection(config))
 
-    start, end, step = 0, 1, 0.005
+    start, end, step = -10, 10, 0.05
     x, y = torch.arange(start, end, step), torch.arange(start, end, step)
     grid_x, grid_y = torch.meshgrid(x, y)
     grid_samples = torch.stack([grid_x, grid_y]).reshape(2, -1).t().cuda()
@@ -92,7 +92,7 @@ def analyse(config):
 
     ax[0].scatter(x=train_projection[:, 0].cpu().numpy(), y = train_projection[:, 1].cpu().numpy())
 
-    percentage = 20
+    percentage = 1
     sorted_index = torch.argsort(prob, descending=True)
     indexes = sorted_index[:(int)(prob.shape[0] * percentage / 100)]
     plot_prob = prob[indexes].cpu().numpy()

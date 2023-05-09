@@ -1,7 +1,7 @@
 import sys
 from os import mkdir, rmdir, listdir
 from pickle import dumps, dump
-from time import localtime, mktime
+from time import localtime, mktime, time
 import shutil
 
 import numpy as np
@@ -57,7 +57,11 @@ def train_encoder(config):
     optim_f = RMSprop(f.parameters(), lr=config['lr'], weight_decay=config['weight_decay'])
     optim_e = RMSprop(e.parameters(), lr=config['lr'], weight_decay=config['weight_decay'])
     result = training_result(config)
-    result_file_name = f'{config["result_folder"]}result_{(int)(mktime(localtime()))}'
+    mean, cov, condition_no = evaluate_encoder(e, train_dataset, config)
+    if config['encoding_dim'] == 1:
+        cov = cov.unsqueeze(0).unsqueeze(0)
+    result.update(e, mean, cov, condition_no)
+    result_file_name = f'{config["result_folder"]}result_{(int)(time() * 1000)}'
 
     progress_bar = tqdm(range(1, config['encoder_iters']+1))
     for encoder_iter in progress_bar:
@@ -131,9 +135,9 @@ if __name__ == '__main__':
     torch.backends.cudnn.benchmark = False
     torch.backends.cudnn.deterministic = True
 
-    config = {'batch_size': 64, 'epochs': 200, 'encoding_dim': 1, 'projection_dim': 2, 'encoder_iters': 1000, 'discriminator_n': 5, 'lr': 5e-5, 'weight_decay': 1e-6, 'clip': 1e-2, 'num_workers': 20, 'result_folder': f'results/set_{(int)(mktime(localtime()))}/' }
+    config = {'batch_size': 64, 'epochs': 200, 'encoding_dim': 1, 'projection_dim': 2, 'encoder_iters': 500, 'discriminator_n': 5, 'lr': 5e-5, 'weight_decay': 1e-6, 'clip': 1e-2, 'num_workers': 0, 'result_folder': f'results/set_{(int)(time() * 1000)}/' }
     mkdir(config['result_folder'])
 
-    for _ in range(10):
+    for _ in range(30):
         train_encoder(config)
     analyse(config)

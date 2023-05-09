@@ -57,26 +57,34 @@ def analyse(config):
         # x, y, z = torch.arange(-3, -2.5, step), torch.arange(2, 2.5, step), torch.arange(8, 9, step)
         grid_x, grid_y, grid_z = torch.meshgrid(x, y, z)
         encoder = Encoder(result.config)
-        encoder.load_state_dict(result.min_condition_no_model)
+        encoder.load_state_dict(result.latest_model)
         encoder.eval()
         encoder.cuda()
         data_samples = torch.stack([grid_x, grid_y, grid_z]).reshape(3, -1).t().cuda()
         with torch.no_grad():
             encoding_samples = encoder(data_samples.to(torch.float))
-        distribution = result.min_condition_no_distribution
+        distribution = result.latest_distribution
         prob = []
         batch_size = 512000
         for i in range(batch_size, encoding_samples.shape[0]+1, batch_size):
-            prob.append(torch.exp(distribution.log_prob(encoding_samples[i-batch_size:i])))
+            # prob.append(torch.exp(distribution.log_prob(encoding_samples[i-batch_size:i])))
+            log_prob = np.float128(distribution.log_prob(encoding_samples[i-batch_size:i]).cpu().numpy())
+            prob.append(np.exp(log_prob))
 
         if (encoding_samples.shape[0] % batch_size) != 0:
-            prob.append(torch.exp(distribution.log_prob(encoding_samples[-(encoding_samples.shape[0] % batch_size):])))
+            # prob.append(torch.exp(distribution.log_prob(encoding_samples[-(encoding_samples.shape[0] % batch_size):])))
+            log_prob = np.float128(distribution.log_prob(encoding_samples[-(encoding_samples.shape[0] % batch_size):]).cpu().numpy())
+            prob.append(np.exp(log_prob))
 
-        prob = torch.cat(prob)
+        # prob = torch.cat(prob)
+        prob = np.concatenate(prob)
         cov = distribution.covariance_matrix
+        eig_val = torch.real(torch.linalg.eig(cov)[0]).to(torch.float64)
         d = cov.shape[0]
-        Z = torch.sqrt(torch.pow(torch.tensor([2*torch.pi]).cuda(), d) * det(cov))
+        # Z = torch.sqrt(torch.pow(torch.tensor([2*torch.pi]).cuda(), d) * det(cov))
+        Z = np.sqrt((np.power(np.float128(2 * np.pi), d) * np.prod(np.float128(eig_val.cpu().numpy()))))
         prob = prob * Z
+        prob = torch.tensor(np.float64(prob))
 
         if torch.any(torch.isnan(prob)).item():
             continue

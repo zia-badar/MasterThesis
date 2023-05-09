@@ -1,6 +1,6 @@
 from os import mkdir
 from pickle import dumps, dump
-from time import localtime, mktime, sleep
+from time import localtime, mktime, sleep, time
 
 import torch.nn
 from torch import softmax, sigmoid, nn
@@ -12,6 +12,7 @@ from torch.utils.data import Subset, DataLoader
 from torchvision import transforms
 from torchvision.datasets import CIFAR10
 from torchvision.transforms import ToTensor
+from tqdm import tqdm
 
 from linearity_test_2.analysis import analyse
 from linearity_test_2.models import Discriminator, Encoder, Projection
@@ -54,10 +55,12 @@ def train_encoder(config):
     optim_f = SGD(f.parameters(), lr=config['lr'], weight_decay=config['weight_decay'])
     optim_e = SGD(e.parameters(), lr=config['lr'], weight_decay=config['weight_decay'])
     normal_dist = MultivariateNormal(loc=torch.zeros(config['encoding_dim']), covariance_matrix=torch.eye(config['encoding_dim']))
-    # mean, cov, condition_no = evaluate_encoder(e, train_dataset, validation_dataset, config)
+    mean, cov, condition_no = evaluate_encoder(e, train_dataset, validation_dataset, config)
     result = training_result(projection, config)
-    # result.update(e, mean, cov, condition_no)
-    result_file_name = f'{config["result_folder"]}/result_{(int)(mktime(localtime()))}'
+    if config['encoding_dim'] == 1:
+        cov = cov.unsqueeze(0).unsqueeze(0)
+    result.update(e, mean, cov, condition_no)
+    result_file_name = f'{config["result_folder"]}/result_{(int)(time() * 1000)}'
     # result_file_name = f'results/result_'
 
     for encoder_iter in range(1, config['encoder_iters']+1):
@@ -95,10 +98,12 @@ def train_encoder(config):
         loss.backward()
         optim_e.step()
 
-        if encoder_iter % 100 == 0:
+        if encoder_iter % config['encoder_iters'] == 0:
             mean, cov, condition_no = evaluate_encoder(e, train_dataset, validation_dataset, config)
+            if config['encoding_dim'] == 1:
+                cov = cov.unsqueeze(0).unsqueeze(0)
             result.update(e, mean, cov, condition_no)
-            print(f'iter: {encoder_iter}, mean: {torch.norm(mean).item() : .4f}, condition_no: {condition_no.item(): .4f}')
+            # print(f'iter: {encoder_iter}, mean: {torch.norm(mean).item() : .4f}, condition_no: {condition_no.item(): .4f}')
 
     with open(result_file_name, 'wb') as file:
         dump(result, file)
@@ -118,23 +123,23 @@ def evaluate_encoder(encoder, train_dataset, validation_dataset, config):
             mean = torch.mean(encodings, dim=0)
             # print(f'std: {torch.std(encodings, dim=0)}')
             cov = torch.cov(encodings.t(), correction=0)
-            eig_val, eig_vec = eig(cov)
-            condition_no = torch.max(eig_val.real) / torch.min(eig_val.real)
+            # eig_val, eig_vec = eig(cov.unsqueeze(0).unsqueeze(0))
+            # condition_no = torch.max(eig_val.real) / torch.min(eig_val.real)
 
     encoder.train()
 
-    return mean, cov, condition_no
+    return mean, cov, -1
 
 if __name__ == '__main__':
     _class = 1
-    config = {'batch_size': 64, 'epochs': 200, 'data_dim': 3, 'encoding_dim': 3, 'encoder_iters': 100, 'discriminator_n': 5, 'lr': 5e-5, 'weight_decay': 1e-6, 'clip': 1e-2, 'result_folder': f'results/set_{(int)(mktime(localtime()))}_{_class}/'}
+    config = {'batch_size': 64, 'epochs': 200, 'data_dim': 3, 'encoding_dim': 1, 'encoder_iters': 500, 'discriminator_n': 5, 'lr': 5e-5, 'weight_decay': 1e-6, 'clip': 1e-2, 'result_folder': f'results/set_{(int)(time() * 1000)}_{_class}/'}
 
     config['class'] = 1
     mkdir(config['result_folder'])
     # train_classifier(config)
     # train_binary_classifier(config)
 
-    for _ in range(1):
+    for _ in tqdm(range(50)):
         train_encoder(config)
 
     analyse(config)
