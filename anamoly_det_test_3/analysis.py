@@ -38,6 +38,9 @@ def analyse(config):
         elif config['manifold_type'] == 'disconnected':
             step = 0.02
             x, y, z = torch.arange(min[0], max[0], step), torch.arange(min[1], max[1], step), torch.arange(min[2], max[2], step)
+        elif config['manifold_type'] == 'closed':
+            step = 0.02
+            x, y, z = torch.arange(min[0], max[0], step), torch.arange(min[1], max[1], step), torch.arange(min[2], max[2], step)
         grid_x, grid_y, grid_z = torch.meshgrid(x, y, z)
         grid_samples = torch.stack([grid_x, grid_y, grid_z]).reshape(3, -1).t().cuda()
     elif config['projection_dim'] == 2:
@@ -45,6 +48,9 @@ def analyse(config):
             step = 0.01
             x, y = torch.arange(min[0], max[0], step), torch.arange(min[1], max[1], step)
         elif config['manifold_type'] == 'disconnected':
+            step = 0.01
+            x, y = torch.arange(min[0], max[0], step), torch.arange(min[1], max[1], step)
+        elif config['manifold_type'] == 'closed':
             step = 0.01
             x, y = torch.arange(min[0], max[0], step), torch.arange(min[1], max[1], step)
         grid_x, grid_y = torch.meshgrid(x, y)
@@ -123,12 +129,16 @@ def analyse(config):
             percentage = 6
         elif config['manifold_type'] == 'disconnected':
             percentage = 1
+        elif config['manifold_type'] == 'closed':
+            percentage = 5
     elif config['projection_dim'] == 2:
         ax[0].scatter(x=train_projection[:, 0].cpu().numpy(), y = train_projection[:, 1].cpu().numpy(), marker='.')
         if config['manifold_type'] == 'connected':
             percentage = 40
         elif config['manifold_type'] == 'disconnected':
             percentage = 10
+        elif config['manifold_type'] == 'closed':
+            percentage = 50
 
     sorted_index = torch.argsort(prob, descending=True)
     indexes = sorted_index[:(int)(prob.shape[0] * percentage / 100)]
