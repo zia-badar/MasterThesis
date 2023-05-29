@@ -64,9 +64,10 @@ class Projection(nn.Module):
             nn.LeakyReLU(negative_slope=0.2, inplace=True),
         )
 
-        self.linear_transform = nn.Sequential(
-            nn.Linear(in_features=config['projection_dim'], out_features=config['projection_dim']),
-        )
+        if self.config['manifold_type'] == 'closed':
+            self.linear_transform = nn.Sequential(
+                nn.Linear(in_features=config['projection_dim'], out_features=config['projection_dim']),
+            )
 
         with open(f'results/projections/{config["manifold_type"]}/{config["encoding_dim"]}d_{config["projection_dim"]}d/projection', 'rb') as file:
             self.load_state_dict(torch.load(file))

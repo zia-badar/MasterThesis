@@ -33,7 +33,7 @@ def analyse(config):
 
     if config['projection_dim'] == 3:
         if config['manifold_type'] == 'connected':
-            step = 0.03
+            step = 0.02
             x, y, z = torch.arange(min[0], max[0], step), torch.arange(min[1], max[1], step), torch.arange(min[2], max[2], step)
         elif config['manifold_type'] == 'disconnected':
             step = 0.02
@@ -119,14 +119,15 @@ def analyse(config):
 
     fig = pyplot.figure()
     if config['projection_dim'] == 3:
-        ax = fig.subplots(1, 2, subplot_kw={'projection': '3d'})
+        ax = fig.subplots(1, 2, subplot_kw={'projection': '3d', 'computed_zorder':False})
     elif config['projection_dim'] == 2:
         ax = fig.subplots(1, 2)
 
     if config['projection_dim'] == 3:
-        ax[0].scatter(xs=train_projection[:, 0].cpu().numpy(), ys = train_projection[:, 1].cpu().numpy(), zs = train_projection[:, 2].cpu().numpy(), marker='.')
+        x, y, z = train_projection[:, 0].cpu().numpy(), train_projection[:, 1].cpu().numpy(), train_projection[:, 2].cpu().numpy()
+        ax[0].scatter(xs=x, ys = y, zs = z, marker='.', c = (x+y+z), cmap='viridis', zorder=1)
         if config['manifold_type'] == 'connected':
-            percentage = 6
+            percentage = 1
         elif config['manifold_type'] == 'disconnected':
             percentage = 1
         elif config['manifold_type'] == 'closed':
@@ -146,8 +147,9 @@ def analyse(config):
     plot_samples = grid_samples[indexes, :].cpu().numpy()
 
     if config['projection_dim'] == 3:
-        ax[1].scatter(xs=train_projection[:, 0].cpu().numpy(), ys = train_projection[:, 1].cpu().numpy(), zs = train_projection[:, 2].cpu().numpy(), marker='.', c='r')
-        ax[1].scatter(xs=plot_samples[:, 0], ys=plot_samples[:, 1], zs=plot_samples[:, 2], marker='.', c=plot_prob, cmap='spring')
+        x, y, z = train_projection[:, 0].cpu().numpy(), train_projection[:, 1].cpu().numpy(), train_projection[:, 2].cpu().numpy()
+        ax[1].scatter(xs=x, ys = y, zs = z, marker='.', c=(x + y + z), cmap='viridis')
+        ax[1].scatter(xs=plot_samples[:, 0], ys=plot_samples[:, 1], zs=plot_samples[:, 2], marker='.', c=plot_prob, cmap='autumn', zorder=2)
     elif config['projection_dim'] == 2:
         ax[1].scatter(x=train_projection[:, 0].cpu().numpy(), y = train_projection[:, 1].cpu().numpy(), marker='.', c='r')
         ax[1].scatter(x=plot_samples[:, 0], y=plot_samples[:, 1], marker='.', c=plot_prob, cmap='spring')
