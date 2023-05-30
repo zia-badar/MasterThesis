@@ -11,7 +11,7 @@ from torch.nn import CosineSimilarity
 from torch.utils.data import Subset, ConcatDataset, DataLoader
 from torchvision import transforms
 from torchvision.datasets import MNIST, CIFAR10
-from torchvision.transforms import ToTensor
+from torchvision.transforms import ToTensor, Resize
 
 from anamoly_det_test_1.datasets import OneClassDataset
 from anamoly_det_test_1.models import Encoder
@@ -22,19 +22,20 @@ def analyse(config):
     inlier = [config['class']]
     outlier = list(range(10))
     outlier.remove(config['class'])
-    dataset = CIFAR10(root='../', train=True, download=True)
-    transform = transforms.Compose([ToTensor()])
-    inlier_dataset = OneClassDataset(dataset, one_class_labels=inlier, transform=transform)
-    outlier_dataset = OneClassDataset(dataset, zero_class_labels=outlier, transform=transform)
-    train_inlier_dataset = Subset(inlier_dataset, range(0, (int)(.7 * len(inlier_dataset))))
-    train_dataset = train_inlier_dataset
-    validation_inlier_dataset = Subset(inlier_dataset, range((int)(.7 * len(inlier_dataset)), len(inlier_dataset)))
-    validation_dataset = ConcatDataset([validation_inlier_dataset, outlier_dataset])
-    cosine_sim = CosineSimilarity(dim=-1)
+    train_mnist = MNIST(root='../', train=True, download=True)
+    test_mnist = MNIST(root='../', train=False, download=True)
+    transform = transforms.Compose([Resize((32, 32)), ToTensor()])
+    train_dataset = OneClassDataset(train_mnist, one_class_labels=inlier, transform=transform)
+    train_outliers = OneClassDataset(train_mnist, zero_class_labels=outlier, transform=transform)
+    test_dataset = ConcatDataset([train_outliers, OneClassDataset(test_mnist, one_class_labels=inlier, zero_class_labels=outlier, transform=transform)])
+    validation_dataset = test_dataset
+
+    # cosine_sim = CosineSimilarity(dim=-1)
 
     prob_sum = None
     cos_sim_sum = None
     prob_count = 0
+    roc_stack = []
     for i, result_file in enumerate(listdir(config['result_folder'])):
 
         with open(config['result_folder'] + result_file, 'rb') as file:
@@ -43,8 +44,8 @@ def analyse(config):
         # config = result.config
         # distribution = result.min_condition_no_distribution
 
-        if not result_file.endswith('_5000'):
-            continue
+        # if not result_file.endswith('_5000'):
+        #     continue
 
 
         validation_dataloader = DataLoader(validation_dataset, batch_size=config['batch_size'], shuffle=False, num_workers=config['num_workers'])
@@ -54,20 +55,20 @@ def analyse(config):
         model = model.cuda()
 
         train_dataloader = DataLoader(train_dataset, batch_size=config['batch_size'], shuffle=True, num_workers=config['num_workers'])
-        encodings = []
-        with torch.no_grad():
-            for x, _ in train_dataloader:
-                x = x.cuda()
-                encodings.append(model(x))
-
-        encodings = torch.cat(encodings)
+        # encodings = []
+        # with torch.no_grad():
+        #     for x, _ in train_dataloader:
+        #         x = x.cuda()
+        #         encodings.append(model(x))
+        #
+        # encodings = torch.cat(encodings)
         # mean = torch.mean(encodings, dim=0)
         # cov = torch.cov(encodings.t(), correction=0)
         # distribution = MultivariateNormal(mean, cov)
         distribution = result.latest_distribution
 
         prob = []
-        cos_sim = []
+        # cos_sim = []
         labels = []
         with torch.no_grad():
             for x, l in validation_dataloader:
@@ -76,12 +77,12 @@ def analyse(config):
                 # prob.append(torch.exp(distribution.log_prob(model(x))))
                 log_prob = np.float128( distribution.log_prob(x).cpu().numpy())
                 prob.append(np.exp(log_prob))
-                cos_sim.append(torch.max(cosine_sim(encodings, x.unsqueeze(1)), dim=1).values)
+                # cos_sim.append(torch.max(cosine_sim(encodings, x.unsqueeze(1)), dim=1).values)
                 labels.append(l)
 
         # prob = torch.cat(prob)
         prob = np.concatenate(prob)
-        cos_sim = torch.cat(cos_sim)
+        # cos_sim = torch.cat(cos_sim)
         labels = torch.cat(labels)
 
         cov = distribution.covariance_matrix
@@ -100,28 +101,31 @@ def analyse(config):
 
         if prob_sum == None:
             prob_sum = prob
-            cos_sim_sum = cos_sim
+            # cos_sim_sum = cos_sim
         else:
             prob_sum += prob
-            cos_sim_sum += cos_sim
+            # cos_sim_sum += cos_sim
 
 
         prob_count += 1
 
-        # if (i+1) % 10 == 0:
-        # print(f'{result_file}, roc_score: {roc_auc_score(labels.cpu().numpy(), (prob_sum / prob_count).cpu().numpy())}, roc: {roc_auc_score(labels.cpu().numpy(), prob.cpu().numpy())}')
+        if (i+1) == 1 or (i+1) % 5 == 0:
+            t_roc = roc_auc_score(labels.cpu().numpy(), (prob_sum / prob_count).cpu().numpy())
+            print(f'{result_file}, roc_score: {t_roc}, roc: {roc_auc_score(labels.cpu().numpy(), prob.cpu().numpy())}')
+            roc_stack.append(t_roc)
 
     print(f'not_nan: {prob_count}')
     prob = prob_sum / prob_count
-    cos_sim = cos_sim_sum / prob_count
+    # cos_sim = cos_sim_sum / prob_count
 
     assert torch.max(prob).item() <= 1, 'prob upper bound error'
     assert torch.min(prob).item() >= 0, 'prob lower bound error'
 
 
-    scores = config['lambda']*prob.cpu().numpy() + (1 - config['lambda'])*((cos_sim+1)/2).cpu().numpy()
+    # scores = config['lambda']*prob.cpu().numpy() + (1 - config['lambda'])*((cos_sim+1)/2).cpu().numpy()
+    scores = prob.cpu().numpy()
     targets = labels.cpu().numpy()
 
     # print(f'class: {config["class"]}, roc_score: {roc_auc_score(targets, scores)}, not_nan: {prob_count}')
 
-    return roc_auc_score(targets, scores)
+    return roc_auc_score(targets, scores), roc_stack

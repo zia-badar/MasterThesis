@@ -4,8 +4,6 @@ import torch
 from torch import nn
 from torch.nn import Flatten, Conv2d, BatchNorm2d, ReLU, BatchNorm1d, LeakyReLU
 
-from anamoly_det_test_1.resnet import resnet188
-
 
 class AbsActivation(nn.Module):
 
@@ -23,18 +21,18 @@ class Discriminator(nn.Module):
     def __init__(self, config):
         super(Discriminator, self).__init__()
 
-        scale = 1
+        scale = 8
         self.d = nn.Sequential(
 
-            nn.Linear(in_features=config['encoding_dim'], out_features=config['encoding_dim']),
+            nn.Linear(in_features=config['encoding_dim'], out_features=scale*config['encoding_dim']),
             LeakyReLU(0.2, inplace=True),
-            nn.Linear(in_features=config['encoding_dim'], out_features=config['encoding_dim']),
-            BatchNorm1d(num_features=config['encoding_dim']),
+            nn.Linear(in_features=scale*config['encoding_dim'], out_features=scale*config['encoding_dim']),
+            BatchNorm1d(num_features=scale*config['encoding_dim']),
             LeakyReLU(0.2, inplace=True),
-            nn.Linear(in_features=config['encoding_dim'], out_features=config['encoding_dim']),
-            BatchNorm1d(num_features=config['encoding_dim']),
+            nn.Linear(in_features=scale*config['encoding_dim'], out_features=scale*config['encoding_dim']),
+            BatchNorm1d(num_features=scale*config['encoding_dim']),
             LeakyReLU(0.2, inplace=True),
-            nn.Linear(in_features=config['encoding_dim'], out_features=1)
+            nn.Linear(in_features=scale*config['encoding_dim'], out_features=1)
         )
 
 
@@ -62,7 +60,7 @@ class Encoder(nn.Module):
             # nn.Linear(in_features=(int)(config['data_dim']/8), out_features=config['encoding_dim']),
 
             # Conv2d(in_channels=1, out_channels=256, kernel_size=4, stride=2, padding=1, bias=False),
-            Conv2d(in_channels=3, out_channels=256, kernel_size=4, stride=2, padding=1, bias=False),
+            Conv2d(in_channels=1, out_channels=256, kernel_size=4, stride=2, padding=1, bias=False),
             BatchNorm2d(num_features=256),
             LeakyReLU(0.2, inplace=True),
             Conv2d(in_channels=256, out_channels=512, kernel_size=4, stride=2, padding=1, bias=False),

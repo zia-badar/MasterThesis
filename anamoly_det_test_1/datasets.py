@@ -19,15 +19,15 @@ class OneClassDataset(Dataset):
 
         # transform = Compose([ToTensor(), Resize((32, 32)), Normalize(mean=(0.5), std=(0.5))])
         to_tensor = ToTensor()
-        self.xs = []
-        self.ls = []
-        for findex in self.filtered_indexes:
-            x, l = self.dataset[findex]
-            self.xs.append(to_tensor(x))
-            self.ls.append(l)
+        # self.xs = []
+        # self.ls = []
+        # for findex in self.filtered_indexes:
+        #     x, l = self.dataset[findex]
+        #     self.xs.append(x)
+        #     self.ls.append(l)
 
-        self.xs = torch.stack(self.xs)
-        self.ls = torch.tensor(self.ls)
+        # self.xs = torch.stack(self.xs)
+        # self.ls = torch.tensor(self.ls)
 
         self.augmentation = augmentation
 
@@ -37,7 +37,7 @@ class OneClassDataset(Dataset):
             transforms.RandomApply([transforms.ColorJitter(0.4, 0.4, 0.4, 0.1)], p=0.8),
             transforms.RandomGrayscale(p=0.2)])
 
-        self.norm_transform = Compose([Normalize(mean=(0.5, 0.5, 0.5), std=(0.5, 0.5, 0.5))])
+        self.norm_transform = Compose([ToTensor(), Resize((32, 32)), Normalize(mean=(0.5), std=(0.5))])
 
     def __getitem__(self, item):
         # x, l = self.dataset[self.filtered_indexes[item]]
@@ -47,8 +47,8 @@ class OneClassDataset(Dataset):
         # l = 1 if l in self.one_class_labels else 0
 
         # return x, l
-        x = self.xs[item]
-        l = 1 if self.ls[item] in self.one_class_labels else 0
+        x, l = self.dataset[self.filtered_indexes[item]]
+        l = 1 if l in self.one_class_labels else 0
 
 
         if self.augmentation:
